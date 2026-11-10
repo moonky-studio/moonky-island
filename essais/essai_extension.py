@@ -1,4 +1,4 @@
-# Essai de l'extension sans fenêtre, sans son, sans micro et sans réseau : manifestes, garde-fou des questions,
+# Essai de l'extension sans fenêtre, sans son, sans micro et sans réseau : manifestes, questions de fin de tour,
 # rappel de démarrage, hooks de l'îlot et de la pastille quand rien n'est installé, guetteur de la pastille en mode
 # observation, réglages, journaux, installateur (coupe-circuit, vérification, remplacement des bibliothèques).
 # Les hooks reçoivent le JSON que Claude Code leur enverrait, par le même lanceur (py.exe -3.12-64). Tout s'écrit
@@ -31,7 +31,7 @@ MARCHE = os.path.join(RACINE, '.claude-plugin', 'marketplace.json')
 
 TMP = tempfile.mkdtemp(prefix='ilot-essai-extension-')
 SANS_LIB = os.path.join(TMP, 'sans-lib')          # rien d'installé : l'îlot et la pastille renoncent
-FAUX_LIB = os.path.join(TMP, 'faux-lib')          # bibliothèques vides : seuls le garde-fou et le rappel y tournent
+FAUX_LIB = os.path.join(TMP, 'faux-lib')          # bibliothèques vides : seul le rappel y tourne
 EN_PROCESS = os.path.join(TMP, 'en-process')      # dossier de données des modules importés ici
 APPDATA_VIDE = os.path.join(TMP, 'appdata')       # aucune fiche de session de l'appli
 STOP = os.path.join(TMP, 'stop')
@@ -47,7 +47,7 @@ for paquet in ('webview', 'pythonnet'):
 os.environ['MOONKY_ILOT_DONNEES'] = EN_PROCESS  # avant l'import : commun.py le lit une fois
 sys.path[:0] = [ILOT, RACINE]
 import commun  # noqa: E402
-import garde_qcm  # noqa: E402
+import fin_de_tour  # noqa: E402
 import attente  # noqa: E402
 import rappel  # noqa: E402
 import ilot  # noqa: E402
@@ -147,12 +147,13 @@ def manifestes():
     question = [m for (e, m) in cibles if e == 'PreToolUse' and m and re.search(m, 'AskUserQuestion')]
     assert len(question) == 1 and cibles[('PreToolUse', question[0])][0] == 'ilot.py', cibles
     assert not re.search(question[0], 'AskUserQuestionX') and not re.search(question[0], 'xAskUserQuestion')
-    garde = [m for (e, m) in cibles if e == 'PreToolUse' and m and re.search(m, 'mcp__ccd_turn__wrap_up')]
-    assert len(garde) == 1 and cibles[('PreToolUse', garde[0])][0] == 'garde_qcm.py', cibles
-    assert not re.search(garde[0], 'mcp__ccd_turn__wrap_up_bis')
-    # le délai du hook doit couvrir la limite dure de l'îlot et son filet de sécurité
+    fin = [m for (e, m) in cibles if e == 'PreToolUse' and m and re.search(m, 'mcp__ccd_turn__wrap_up')]
+    assert len(fin) == 1 and cibles[('PreToolUse', fin[0])][0] == 'ilot.py', cibles
+    assert not re.search(fin[0], 'mcp__ccd_turn__wrap_up_bis')
+    # le délai des deux hooks de l'îlot doit couvrir sa limite dure et son filet de sécurité
     assert ilot.DELAI_MAX == 540, ilot.DELAI_MAX
-    assert cibles[('PreToolUse', question[0])][1] > ilot.LIMITE_DURE - ilot.DEBUT + 15, cibles
+    for motif in (question[0], fin[0]):
+        assert cibles[('PreToolUse', motif)][1] > ilot.LIMITE_DURE - ilot.DEBUT + 15, cibles
     with open(MARCHE, encoding='utf-8') as f:
         catalogue = json.load(f)
     assert catalogue.get('name') == 'moonky-island', catalogue
@@ -162,78 +163,120 @@ def manifestes():
 
 
 # ---------------------------------------------------------------------------
-# Garde-fou des questions (wrap_up)
+# Questions de fin de tour (wrap_up), relayées dans l'îlot
 # ---------------------------------------------------------------------------
 
-def wrap(session, ask, actions, outil='mcp__ccd_turn__wrap_up'):
+def wrap(session, ask, actions, outil='mcp__ccd_turn__wrap_up', recap='Récapitulatif.'):
     return {'tool_name': outil, 'session_id': session, 'hook_event_name': 'PreToolUse',
-            'tool_input': {'recap': 'Récapitulatif.', 'ask': ask, 'actions': actions}}
+            'tool_input': {'recap': recap, 'ask': ask, 'actions': actions}}
 
 
 REPONSES = [{'label': 'Oui'}, {'label': 'Non'}]
 
 
-@cas
-def garde_decisions():
-    s = 'session-garde'
-    etat = garde_qcm.chemin_etat(s)
-    assert garde_qcm.decision(wrap(s, 'On publie ?', REPONSES, outil='Bash')) is None, 'autre outil refusé'
-    assert garde_qcm.decision(wrap(s, 'On commite ?', [{'action': 'commit'}])) is None, 'bouton d’action refusé'
-    d = garde_qcm.decision(wrap(s, 'On publie ?', REPONSES))
-    assert d and d['hookSpecificOutput']['permissionDecision'] == 'deny', d
-    assert d['hookSpecificOutput']['permissionDecisionReason'].startswith(commun.MARQUE_GARDE)
-    assert os.path.isfile(etat), 'refus pas mémorisé'
-    assert garde_qcm.decision(wrap(s, 'On publie ?', REPONSES)) is None, 'la session qui insiste est bloquée'
-    assert not os.path.exists(etat), 'refus pas oublié après l’insistance'
-    assert garde_qcm.decision(wrap(s, 'Et maintenant ?', REPONSES)), 'question suivante pas refusée'
-    assert garde_qcm.decision(wrap(s, '  ', REPONSES)) is None, 'question vide refusée'
-    assert not os.path.exists(etat), 'refus pas oublié après un wrap_up sans question'
-    assert garde_qcm.decision(wrap(s, 'PR ?', json.dumps([{'action': 'create_pr'}]))) is None, 'actions en texte'
-    ecrire(etat, {'refus': time.time() - 16 * 60})
-    assert garde_qcm.decision(wrap(s, 'On publie ?', REPONSES)), 'refus de plus de 15 min encore compté'
-    assert os.path.dirname(garde_qcm.chemin_etat('../../x:y')) == garde_qcm.ETAT, 'nom de session non assaini'
-    lignes = journal(EN_PROCESS, 'garde')
-    assert any('refusé' in x for x in lignes) and any('insiste' in x for x in lignes), lignes
+def passer_ilot(entree, quoi, donnees=SANS_LIB):
+    """Lance le hook de l'îlot, qui doit s'effacer sans rien écrire ; renvoie les nouvelles lignes de son journal."""
+    avant = len(journal(donnees, 'ilot'))
+    r, duree = lancer(script('ilot.py'), entree, donnees)
+    rien(r, quoi)
+    assert duree < 10, f'{quoi} : {duree:.1f} s'
+    return journal(donnees, 'ilot')[avant:]
 
 
 @cas
-def garde_par_hook():
-    assert commun.DEFAUTS['garde_fou'] is False, 'garde-fou actif par défaut'
-    entree = wrap('session-hook', 'On publie ?', REPONSES)
-    reglages = os.path.join(FAUX_LIB, 'reglages.json')
-    ecrire(os.path.join(SANS_LIB, 'reglages.json'), {'garde_fou': True})
+def fin_de_tour_questions():
+    s = 'session-fin-de-tour'
+    q = fin_de_tour.questions
+    assert q(wrap(s, 'On publie ?', REPONSES, outil='Bash')) is None, 'autre outil relayé'
+    assert q(wrap(s, 'On commite ?', [{'action': 'commit'}])) is None, 'bouton d’action relayé'
+    assert q(wrap(s, 'On commite ?', [{'label': 'Plus tard'}, {'action': 'commit'}])) is None, 'action mêlée relayée'
+    assert q(wrap(s, 'PR ?', json.dumps([{'action': 'create_pr'}]))) is None, 'actions en texte relayées'
+    assert q(wrap(s, 'Quel nom ?', [])) is None, 'question sans bouton relayée'
+    assert q(wrap(s, 'Quel nom ?', 'pas du json')) is None, 'actions illisibles relayées'
+    assert q({'tool_name': fin_de_tour.OUTIL, 'tool_input': 'texte'}) is None, 'entrée sans dictionnaire relayée'
+    liste = q(wrap(s, '  On   publie ?\n', [{'label': ' Oui '}, {'label': 'Oui'}, {'label': 'Pas  maintenant'}],
+                   recap='Le  dépôt est prêt.\nRien de poussé.'))
+    assert liste and len(liste) == 1, liste
+    question = liste[0]
+    assert question['question'] == 'On publie ?', question
+    assert question['contexte'] == 'Le dépôt est prêt. Rien de poussé.', question
+    assert question['multiSelect'] is False and question['header'] == '', question
+    assert [o['label'] for o in question['options']] == ['Oui', 'Pas maintenant'], question
+    assert question['options'][0].get('recommande') is True, question
+    assert 'recommande' not in question['options'][1], question
+    seul = q(wrap(s, 'Je lance ?', json.dumps([{'label': 'Oui'}])))
+    assert seul and 'recommande' not in seul[0]['options'][0], 'bouton unique marqué recommandé'
+    assert len(q(wrap(s, 'Lequel ?', [{'label': str(i)} for i in range(12)]))[0]['options']) == 9
+    assert not os.path.exists(fin_de_tour.chemin_etat(s)), 'état écrit sans réponse'
+    with open(os.path.join(ILOT, 'ilot.html'), encoding='utf-8') as f:
+        page = f.read()
+    assert "'q-contexte'" in page and 'o.recommande' in page, 'la page ne montre ni le résumé ni la recommandation'
+
+
+@cas
+def fin_de_tour_reponse():
+    s = 'session-reponse'
+    etat = fin_de_tour.chemin_etat(s)
+    entree = wrap(s, 'On  publie ?', REPONSES)
+    assert fin_de_tour.sortie(entree, {}) is None and fin_de_tour.sortie(entree, None) is None
+    assert fin_de_tour.sortie(entree, {'On publie ?': '  '}) is None, 'réponse vide envoyée'
+    assert not os.path.exists(etat), 'relais noté sans réponse'
+    d = fin_de_tour.sortie(entree, {'On publie ?': 'Oui'})
+    h = d['hookSpecificOutput']
+    assert h['hookEventName'] == 'PreToolUse' and h['permissionDecision'] == 'deny', d
+    raison = h['permissionDecisionReason']
+    assert raison.startswith(commun.MARQUE_GARDE), raison
+    assert '« On publie ? »' in raison and '« Oui »' in raison and 'sans `ask`' in raison, raison
+    with open(etat, encoding='utf-8') as f:
+        assert 'publie' not in f.read(), 'texte de la question gardé sur le disque'
+    # la même question revient (Claude n'a pas suivi la consigne) : laissée à l'appli, sans tourner en rond
+    assert fin_de_tour.questions(entree) is None, 'même question relayée deux fois'
+    assert any('déjà relayée' in x for x in journal(EN_PROCESS, 'ilot')), 'question répétée pas notée'
+    assert fin_de_tour.questions(wrap(s, 'On  PUBLIE ?', REPONSES)) is None, 'casse ou espaces comptés'
+    assert fin_de_tour.questions(wrap(s, 'Et ensuite ?', REPONSES)), 'question suivante pas relayée'
+    ecrire(etat, {'question': fin_de_tour.empreinte('On publie ?'), 'quand': time.time() - 16 * 60})
+    assert fin_de_tour.questions(entree), 'relais de plus de 15 min encore compté'
+    fin_de_tour.noter_relais(s, 'On publie ?')
+    assert fin_de_tour.questions(wrap(s, '', REPONSES)) is None
+    assert not os.path.exists(etat), 'état pas oublié après un wrap_up sans question'
+    # réponse rangée sous une autre clé : la première non vide sert
+    d = fin_de_tour.sortie(wrap(s, 'Lequel ?', REPONSES), {'autre': 'Le second'})
+    assert '« Le second »' in d['hookSpecificOutput']['permissionDecisionReason'], d
+    assert os.path.dirname(fin_de_tour.chemin_etat('../../x:y')) == fin_de_tour.ETAT, 'nom de session non assaini'
+    os.environ['ILOT_LANGUE'] = 'en'
+    commun.langue.cache_clear()
     try:
-        r, _ = lancer(script('garde_qcm.py'), entree, SANS_LIB)
-        rien(r, 'îlot pas installé')
+        raison = fin_de_tour.raison('Ship it?', 'Yes')
+        assert raison.startswith(commun.MARQUE_GARDE + ':') and '"Ship it?"' in raison and '"Yes"' in raison, raison
     finally:
-        effacer(os.path.join(SANS_LIB, 'reglages.json'))
-    if not WEBVIEW2:
-        print('       (WebView2 absent : refus par le hook pas essayé)')
-        return
-    r, _ = lancer(script('garde_qcm.py'), entree, FAUX_LIB)
-    rien(r, 'garde-fou pas activé')
-    ecrire(reglages, {'garde_fou': True})
+        os.environ['ILOT_LANGUE'] = 'fr'
+        commun.langue.cache_clear()
+
+
+@cas
+def fin_de_tour_par_hook():
+    assert commun.DEFAUTS[fin_de_tour.REGLAGE] is True and fin_de_tour.active(), 'relais coupé par défaut'
+    entree = wrap('session-hook', 'On publie ?', REPONSES)
+    nouvelles = passer_ilot(entree, 'bibliothèques absentes')
+    assert any('îlot pas affiché (bibliothèques pas installées) : question laissée à Claude' in x
+               for x in nouvelles), nouvelles
+    for quoi, autre in (('bouton d’action', wrap('session-hook', 'On commite ?', [{'action': 'commit'}])),
+                        ('sans question', wrap('session-hook', '', REPONSES)),
+                        ('sans bouton', wrap('session-hook', 'Quel nom ?', []))):
+        assert not passer_ilot(autre, quoi), quoi
+    reglages = os.path.join(SANS_LIB, 'reglages.json')
+    ecrire(reglages, {fin_de_tour.REGLAGE: False})
     try:
-        r, _ = lancer(script('garde_qcm.py'), entree, FAUX_LIB)
-        d = sortie_json(r)
-        assert d['hookSpecificOutput']['permissionDecision'] == 'deny', d
-        assert d['hookSpecificOutput']['permissionDecisionReason'] == garde_qcm.RAISON_FR, d
-        r, _ = lancer(script('garde_qcm.py'), wrap('session-anglais', 'Ship it?', REPONSES), FAUX_LIB,
-                      env_plus={'ILOT_LANGUE': 'en'})
-        d = sortie_json(r)
-        assert d['hookSpecificOutput']['permissionDecisionReason'] == garde_qcm.RAISON_EN, d
-        coupe = os.path.join(FAUX_LIB, 'coupe')
-        ecrire(coupe, 'essai')
-        try:
-            r, _ = lancer(script('garde_qcm.py'), wrap('session-coupee', 'On publie ?', REPONSES), FAUX_LIB)
-            rien(r, 'extension coupée')
-        finally:
-            effacer(coupe)
-        r, _ = lancer(script('garde_qcm.py'), b'{pas du json', FAUX_LIB)
-        rien(r, 'entrée illisible')
-        assert any('erreur' in x for x in journal(FAUX_LIB, 'garde')), 'erreur pas notée'
+        assert not passer_ilot(entree, 'relais coupé par le réglage')
     finally:
         effacer(reglages)
+    coupe = os.path.join(SANS_LIB, 'coupe')
+    ecrire(coupe, 'essai')
+    try:
+        assert not passer_ilot(entree, 'extension coupée')
+    finally:
+        effacer(coupe)
+    assert not os.path.exists(os.path.join(SANS_LIB, 'etat')), 'état écrit sans réponse'
 
 
 # ---------------------------------------------------------------------------
@@ -278,14 +321,7 @@ QUESTION = {'tool_name': 'AskUserQuestion', 'session_id': 'essai', 'hook_event_n
 @cas
 def ilot_sans_bibliotheques():
     assert not os.path.exists(os.path.join(SANS_LIB, 'lib')), 'des bibliothèques dans le dossier sans-lib'
-
-    def passage(entree, quoi):
-        avant = len(journal(SANS_LIB, 'ilot'))
-        r, duree = lancer(script('ilot.py'), entree, SANS_LIB)
-        rien(r, quoi)
-        assert duree < 10, f'{quoi} : {duree:.1f} s'
-        return journal(SANS_LIB, 'ilot')[avant:]
-
+    passage = passer_ilot
     coupe = os.path.join(SANS_LIB, 'coupe')
     ecrire(coupe, 'essai')
     try:
@@ -312,7 +348,7 @@ def ilot_sans_bibliotheques():
 def hors_windows():
     code = ("import sys, runpy; p = sys.argv[1]; sys.platform = 'linux'; sys.argv = [p]; "
             "runpy.run_path(p, run_name='__main__')")
-    for nom in ('ilot.py', 'attente.py', 'garde_qcm.py', 'rappel.py'):
+    for nom in ('ilot.py', 'attente.py', 'rappel.py'):
         r, _ = lancer('-c', QUESTION, SANS_LIB, args=(code, script(nom)))
         rien(r, nom)
     r, _ = lancer('-c', b'', SANS_LIB, args=(code, os.path.join(RACINE, 'installer.py')))
@@ -424,7 +460,7 @@ TOUR = [
     utilisateur('méta', isMeta=True),                    # ne commence pas un tour
     utilisateur('résumé de la discussion', isCompactSummary=True),
     assistant('a3b', [appel_wrap('t3', 'REFUS')]),
-    utilisateur([resultat('t3', commun.MARQUE_GARDE + ' pose la question avec AskUserQuestion', en_liste=True)]),
+    utilisateur([resultat('t3', fin_de_tour.raison('REFUS', 'Oui'), en_liste=True)]),
     assistant('a3c', [appel_wrap('t4', 'ERREUR')]),
     utilisateur([resultat('t4', 'échec', erreur=True)]),
     assistant('s1', [appel_wrap('t5', 'SOUS-AGENT')], cote=True),
@@ -738,7 +774,7 @@ def installateur_coupe_circuit():
     assert code == 1, sortie
     for attendu in ('Bibliothèques : à installer (pywebview 6.2.1',
                     'pas trouvée : claude plugin install moonky-island@moonky-island',
-                    'garde-fou non, langue auto', "L'îlot ne peut pas s'afficher"):
+                    'questions de fin de tour oui, langue auto', "L'îlot ne peut pas s'afficher"):
         assert attendu in sortie, (attendu, sortie)
     # en anglais par le réglage « langue »
     reglages = os.path.join(INSTALLATEUR, 'reglages.json')
@@ -748,7 +784,7 @@ def installateur_coupe_circuit():
         assert code == 1, sortie
         for attendu in ('Libraries: to install (pywebview 6.2.1',
                         'not found: claude plugin install moonky-island@moonky-island',
-                        'guard no, language en', 'The island cannot show up'):
+                        'end-of-turn questions yes, language en', 'The island cannot show up'):
             assert attendu in sortie, (attendu, sortie)
         code, sortie = commande('--off', env_plus={'ILOT_LANGUE': ''})
         assert code == 0 and 'Moonky Island is off' in sortie, sortie

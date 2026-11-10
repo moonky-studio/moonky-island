@@ -13,6 +13,11 @@ tour et attendent votre réponse.
   le clavier. Vous choisissez une option, tapez votre propre réponse, ou cliquez sur « Répondre dans
   Claude » pour répondre dans la discussion comme avant. Sans réponse au bout de 9 minutes, la question
   repart dans la discussion et la pastille prend le relais.
+- **Les questions de fin de tour aussi.** Dans l'appli Claude, quand Claude finit son tour sur une
+  question avec des boutons de réponse (« Je pousse le commit ? » avec « Oui » et « Pas maintenant »),
+  la question passe aussi par l'îlot, avec le résumé du tour au-dessus. Votre réponse repart vers
+  Claude, qui continue. Les boutons d'action de l'appli, comme Commit ou la création de PR, restent
+  dans l'appli.
 - **La pastille.** Quand une session de l'appli Claude finit son tour sur une question, une pastille
   montre le titre de la session et ce qu'elle attend. Un clic ouvre la discussion. Elle se tait si vous
   avez déjà cette session sous les yeux.
@@ -76,7 +81,7 @@ Dans `%LOCALAPPDATA%\moonky-ilot\reglages.json`, relu à chaque question, donc s
 | `dictee_langue` | `"auto"`, ou un code de langue comme `"fr"`, `"en"`, `"de"`. Avec `"auto"`, le français si l'interface est en français, sinon Whisper reconnaît la langue | `"auto"` |
 | `pastille` | `true`, `false` (jamais de pastille) ou `"observation"` (rien ne s'affiche, le journal note ce qui l'aurait été) | `true` |
 | `pastille_plein_ecran` | `true` : la pastille passe même pendant un plein écran ou une présentation | `false` |
-| `garde_fou` | `true` : voir « Ce que font les hooks » plus bas. Appli Claude seulement | `false` |
+| `questions_fin_de_tour` | `false` : les questions du résumé de fin de tour restent dans l'appli. Appli Claude seulement | `true` |
 | `whisper_python`, `whisper_modele` | chemins d'un Whisper déjà installé ailleurs ; vides, l'îlot prend celui de `--whisper` | vides |
 
 Le dossier de données garde l'ancien nom de l'extension, `moonky-ilot`.
@@ -97,13 +102,13 @@ Le micro reste caché tant que la dictée n'est pas activée ou que Whisper et s
 |---|---|---|
 | SessionStart | `ilot/rappel.py` | Ajoute le rappel au contexte de la session. Si l'îlot ne peut pas encore s'afficher, donne plutôt à Claude la commande qui termine l'installation. |
 | PreToolUse sur AskUserQuestion | `ilot/ilot.py` | Affiche les questions et rend vos réponses comme réponses de l'outil. « Répondre dans Claude » ou le délai de 9 minutes laissent la question passer dans la discussion. |
-| PreToolUse sur `mcp__ccd_turn__wrap_up` | `ilot/garde_qcm.py` | Ne fait rien tant que `garde_fou` ne vaut pas `true`. Ensuite, quand Claude met une décision dans le résumé de fin de tour de l'appli avec seulement des boutons de réponse, il le refuse une fois et le renvoie vers AskUserQuestion. Si Claude insiste, il laisse passer. |
+| PreToolUse sur `mcp__ccd_turn__wrap_up` | `ilot/ilot.py` | Quand le résumé de fin de tour de l'appli pose une question avec seulement des boutons de réponse, l'affiche dans l'îlot. Une fois votre réponse donnée, le résumé est refusé avec cette réponse pour motif : Claude continue d'après elle, puis renvoie son résumé sans la question. « Répondre dans Claude », le délai de 9 minutes ou la même question qui revient laissent passer le résumé tel quel. |
 | Stop | `ilot/attente.py` | Lance un guetteur détaché et rend la main aussitôt, sans rien écrire. Le guetteur montre la pastille si la session a fini son tour en vous attendant. |
 
 ## Couper, mettre à jour, désinstaller
 
 - Couper sans désinstaller : `py -3.12-64 $ilot --couper`. Les questions restent dans la discussion,
-  sans îlot, pastille ni garde-fou. `--reprendre` remet tout en marche. La coupure tient dans le
+  sans îlot ni pastille. `--reprendre` remet tout en marche. La coupure tient dans le
   fichier `%LOCALAPPDATA%\moonky-ilot\coupe` : le supprimer revient au même.
   `claude plugin disable moonky-island@moonky-island` (puis `enable`) marche aussi, pour les sessions
   ouvertes après la commande.
@@ -120,8 +125,9 @@ Rien n'est envoyé sur Internet. Seul l'installateur télécharge : les biblioth
 `--whisper`, le modèle depuis Hugging Face.
 
 Tout est dans `%LOCALAPPDATA%\moonky-ilot`, jamais dans le dossier de l'extension, qui est remplacé à
-chaque mise à jour : les bibliothèques, les réglages, la coupure, Whisper s'il est installé, et des
-journaux effacés au bout de 7 jours. Les journaux notent les titres des sessions et les étapes de
+chaque mise à jour : les bibliothèques, les réglages, la coupure, Whisper s'il est installé, pour
+chaque session une empreinte de la dernière question de fin de tour à laquelle vous avez répondu dans
+l'îlot (jamais son texte), et des journaux effacés au bout de 7 jours. Les journaux notent les titres des sessions et les étapes de
 l'îlot ; en mode `"observation"`, aussi le début de ce que la pastille aurait affiché. Vos réponses n'y
 sont pas, et les enregistrements de dictée sont effacés dès qu'ils sont transcrits.
 
@@ -139,6 +145,10 @@ sont pas, et les enregistrements de dictée sont effacés dès qu'ils sont trans
 - L'appli Claude coupe une session restée environ 16 minutes sans signe de vie, et une question qui
   attend dans l'îlot compte comme du silence. D'où les 9 minutes : si l'appli raccourcit ce délai, il
   faudra baisser `DELAI_MAX` dans `ilot/ilot.py`.
+- Les questions de fin de tour ne passent par l'îlot que si elles ont des boutons de réponse. Une
+  question avec un bouton d'action (Commit, création de PR) ou sans bouton reste dans l'encadré de
+  l'appli. Le relais repose sur un outil interne de l'appli, `mcp__ccd_turn__wrap_up` : s'il change
+  de nom, ces questions restent simplement dans l'appli.
 - Le nouveau gestionnaire d'installation de Python (Python install manager) n'a pas été essayé. S'il
   remplace `py`, vérifier que `py -3.12-64 --version` répond toujours.
 - Pas de Mac ni de Linux. Les scripts n'y font rien, mais `py.exe` y manque : Claude Code signalerait

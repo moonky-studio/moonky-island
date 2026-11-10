@@ -254,7 +254,7 @@ def analyser_tour(entrees):
         r = resultats.get(b.get('id'))
         if r is not None and (r.get('is_error')
                               or any(m in texte_resultat(r) for m in commun.MARQUES_GARDE)):
-            continue  # wrap_up refusé (par le garde-fou des questions ou autre) : la session l'a refait ensuite
+            continue  # wrap_up refusé (réponse donnée dans l'îlot ou autre) : la session l'a refait ensuite
         return u0, str((b.get('input') or {}).get('ask') or '').strip()
     return u0, ''
 

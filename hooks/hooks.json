@@ -31,8 +31,9 @@
           {
             "type": "command",
             "command": "py.exe",
-            "args": ["-3.12-64", "${CLAUDE_PLUGIN_ROOT}/ilot/garde_qcm.py"],
-            "timeout": 10
+            "args": ["-3.12-64", "${CLAUDE_PLUGIN_ROOT}/ilot/ilot.py"],
+            "timeout": 840,
+            "statusMessage": "Moonky Island"
           }
         ]
       }

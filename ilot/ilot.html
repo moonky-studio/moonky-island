@@ -142,6 +142,10 @@
   .page::-webkit-scrollbar-thumb { background: rgba(118, 118, 128, 0.4); border-radius: 8px; border: 2px solid #000; }
   .page::-webkit-scrollbar-button { display: none; height: 0; }
   .q-entete { font: 600 12px/1.2 var(--affichage); color: var(--orange-clair); letter-spacing: 0.01em; margin-bottom: 7px; }
+  .q-contexte {
+    font: 400 12.5px/1.45 var(--lecture); color: rgba(235, 235, 245, 0.55); margin-bottom: 8px;
+    text-wrap: pretty; user-select: text; cursor: text;
+  }
   .q-texte {
     font: 600 16px/1.38 var(--affichage); color: #fff; letter-spacing: -0.01em; margin-bottom: 14px;
     text-wrap: pretty; user-select: text; cursor: text;
@@ -403,9 +407,10 @@
     i,
     question: q.question || '',
     entete: (q.header || '').trim(),
+    contexte: (q.contexte || '').trim(),  // résumé de fin de tour, pour une question relayée depuis wrap_up
     multiple: !!q.multiSelect,
     options: (q.options || []).map((o, j) => ({
-      j, label: o.label || '', affiche: (o.label || '').replace(RECO, ''), reco: RECO.test(o.label || ''),
+      j, label: o.label || '', affiche: (o.label || '').replace(RECO, ''), reco: RECO.test(o.label || '') || !!o.recommande,
       desc: (o.description || '').trim(),
     })),
   }));
@@ -467,6 +472,7 @@
   function construirePage(q) {
     const page = el('section', 'page');
     if (q.entete) page.append(el('div', 'q-entete', q.entete));
+    if (q.contexte) page.append(el('p', 'q-contexte', q.contexte));
     page.append(el('h2', 'q-texte', q.question));
     const liste = el('div', 'options' + (q.multiple ? ' multiple' : ''));
     liste.setAttribute('role', 'group');

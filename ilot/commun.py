@@ -7,10 +7,10 @@ de données à part, %LOCALAPPDATA%\\moonky-ilot par défaut, ou le dossier donn
 MOONKY_ILOT_DONNEES (essais) :
 
     lib\\            pywebview et pythonnet, installés par installer.py
-    reglages.json   son, dictée, pastille, garde-fou, langue (voir le README de l'extension)
+    reglages.json   son, dictée, pastille, questions de fin de tour, langue (voir le README de l'extension)
     coupe           s'il existe, l'extension ne fait plus rien, sans être désinstallée
     journaux\\       un fichier par jour et par script, effacés au bout de 7 jours
-    etat\\           garde-fou des questions, carte graphique écartée pour Whisper
+    etat\\           questions de fin de tour déjà relayées, carte graphique écartée pour Whisper
     places\\         îlots ouverts, pour les empiler
     attente\\        pastilles « attend ta réponse » en cours
     webview\\        profils WebView2 des fenêtres
@@ -34,8 +34,9 @@ RACINE = os.path.dirname(ICI)  # dossier de l'extension
 ESSAI = bool(os.environ.get('ILOT_ESSAI'))
 VERSION_PYTHON = (3, 12)
 JOURS_DE_JOURNAUX = 7
-# début du message du garde-fou : la pastille reconnaît ainsi un wrap_up refusé ; l'ancienne marque reste
-# reconnue, pour les discussions commencées avec une version précédente
+# début de la réponse rendue à Claude quand une question de fin de tour a trouvé sa réponse dans l'îlot : la
+# pastille reconnaît ainsi un wrap_up refusé ; l'ancienne marque reste reconnue, pour les discussions
+# commencées avec une version précédente
 MARQUE_GARDE = 'Moonky Island'
 MARQUES_GARDE = (MARQUE_GARDE, 'Îlot Moonky :')
 # début du titre des fenêtres de l'îlot et de la pastille ; l'ancien préfixe reste reconnu, une fenêtre d'avant
@@ -72,7 +73,7 @@ DEFAUTS = {
     'pastille_plein_ecran': False,
     'whisper_python': '',
     'whisper_modele': '',
-    'garde_fou': False,
+    'questions_fin_de_tour': True,
     'langue': 'auto',
     'dictee_langue': 'auto',
 }

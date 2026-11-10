@@ -310,8 +310,8 @@ def couper():
     with open(commun.COUPE, 'w', encoding='utf-8') as f:
         f.write(f'Moonky Island off since {time.strftime("%Y-%m-%d %H:%M")}. To turn it back on: '
                 f'{CETTE_COMMANDE} --on, or delete this file.\n')
-    dire(t('Moonky Island coupé : les questions de Claude restent dans la discussion, sans îlot, pastille ni garde-fou.',
-           "Moonky Island is off: Claude's questions stay in the chat, with no island, pill or guard."))
+    dire(t('Moonky Island coupé : les questions de Claude restent dans la discussion, sans îlot ni pastille.',
+           "Moonky Island is off: Claude's questions stay in the chat, with no island or pill."))
     dire(t("Un îlot ou une pastille déjà affichés restent jusqu'à leur réponse ou leur fermeture.",
            'An island or pill already on screen stays until it is answered or closed.'))
     dire(t(f'Pour le remettre en marche : {CETTE_COMMANDE} --reprendre',
@@ -445,9 +445,9 @@ def verifier():
         ou = commun.REGLAGES if os.path.exists(commun.REGLAGES) else t(
             'valeurs par défaut, fichier pas encore créé', 'default values, file not created yet')
         ligne(nom_reglages, t(f"son {r.get('son')}, pastille {pastille}, dictée {oui_non(r.get('dictee'))}, "
-                              f"garde-fou {oui_non(r.get('garde_fou'))}, langue {r.get('langue')} ({ou})",
+                              f"questions de fin de tour {oui_non(r.get('questions_fin_de_tour'))}, langue {r.get('langue')} ({ou})",
                               f"sound {r.get('son')}, pill {pastille}, dictation {oui_non(r.get('dictee'))}, "
-                              f"guard {oui_non(r.get('garde_fou'))}, language {r.get('langue')} ({ou})"))
+                              f"end-of-turn questions {oui_non(r.get('questions_fin_de_tour'))}, language {r.get('langue')} ({ou})"))
     nom_dictee = t('Dictée', 'Dictation')
     if commun.dictee_active():
         ligne(nom_dictee, t(f'prête ({commun.whisper_python()})', f'ready ({commun.whisper_python()})'))

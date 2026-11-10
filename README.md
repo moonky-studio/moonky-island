@@ -13,6 +13,10 @@ waiting for your answer.
   the keyboard. Pick an option, type your own answer, or click "Answer in Claude" to answer in the
   chat as usual. After 9 minutes without an answer, the question goes back to the chat and the pill
   takes over.
+- **End-of-turn questions too.** In the Claude desktop app, when Claude ends its turn on a question
+  with reply buttons ("Shall I push the commit?" with "Yes" and "Not now"), the question shows in the
+  island as well, with the turn summary above it. Your answer goes back to Claude, which carries on.
+  The app's action buttons, such as Commit or Create PR, stay in the app.
 - **The pill.** When a session of the Claude desktop app ends its turn on a question, a pill shows the
   session title and what it is waiting for. One click opens the chat. It stays quiet when that session
   is already in front of you.
@@ -75,7 +79,7 @@ Setting names are in French.
 | `dictee_langue` (spoken language) | `"auto"`, or a language code such as `"en"`, `"fr"`, `"de"`. With `"auto"`, French when the interface is in French, otherwise Whisper detects the language | `"auto"` |
 | `pastille` (pill) | `true`, `false` (no pill) or `"observation"` (nothing shows, the log notes what would have) | `true` |
 | `pastille_plein_ecran` | `true`: the pill also shows during full screen or a presentation | `false` |
-| `garde_fou` (guard) | `true`: see "What the hooks do" below. Desktop app only | `false` |
+| `questions_fin_de_tour` (end-of-turn questions) | `false`: questions from the end-of-turn summary stay in the app. Desktop app only | `true` |
 | `whisper_python`, `whisper_modele` | paths to a Whisper you already installed elsewhere; empty, the island uses the one from `--whisper` | empty |
 
 The data folder keeps the plugin's former name, `moonky-ilot`.
@@ -96,13 +100,13 @@ The microphone stays hidden until dictation is on and Whisper and its model are 
 |---|---|---|
 | SessionStart | `ilot/rappel.py` | Adds the reminder to the session context. If the island cannot show yet, tells Claude the setup command instead. |
 | PreToolUse on AskUserQuestion | `ilot/ilot.py` | Shows the questions and sends your answers back as the tool's answers. "Answer in Claude" or the 9-minute limit let the question go on to the chat. |
-| PreToolUse on `mcp__ccd_turn__wrap_up` | `ilot/garde_qcm.py` | Does nothing unless `garde_fou` is `true`. Then, when Claude puts a decision in the desktop app's end-of-turn summary with only answer buttons, it refuses once and sends Claude to AskUserQuestion. If Claude insists, it lets it through. |
+| PreToolUse on `mcp__ccd_turn__wrap_up` | `ilot/ilot.py` | When the desktop app's end-of-turn summary asks a question with reply buttons only, shows it in the island. Once you answer, the summary is refused with your answer as the reason: Claude goes on from there, then sends its summary again without the question. "Answer in Claude", the 9-minute limit or the same question coming back let the summary through unchanged. |
 | Stop | `ilot/attente.py` | Starts a detached watcher and returns at once, with no output. The watcher shows the pill if the session ended its turn waiting for you. |
 
 ## Turn off, update, uninstall
 
 - Turn off without uninstalling: `py -3.12-64 $island --off`. Questions stay in the chat, with no
-  island, pill or guard. `--on` turns everything back on. The switch is the file
+  island or pill. `--on` turns everything back on. The switch is the file
   `%LOCALAPPDATA%\moonky-ilot\coupe`: deleting it does the same as `--on`.
   `claude plugin disable moonky-island@moonky-island` (then `enable`) also works, for sessions opened
   after the command.
@@ -119,7 +123,9 @@ Nothing is sent over the Internet. Only the installer downloads: libraries from 
 `--whisper`, the model from Hugging Face.
 
 Everything lives in `%LOCALAPPDATA%\moonky-ilot`, never in the plugin folder, which is replaced on each
-update: libraries, settings, the off switch, Whisper if installed, and logs deleted after 7 days. Logs
+update: libraries, settings, the off switch, Whisper if installed, for each session a fingerprint of
+the last end-of-turn question you answered in the island (never its text), and logs deleted after
+7 days. Logs
 record session titles and the island's steps; in `"observation"` mode, also the start of what the pill
 would have shown. Your answers are not logged, and dictation recordings are deleted as soon as they are
 transcribed.
@@ -139,6 +145,10 @@ transcribed.
 - The Claude desktop app stops a session after about 16 minutes without activity, and a question
   waiting in the island counts as silence. Hence the 9 minutes: if the app shortens that delay,
   `DELAI_MAX` in `ilot/ilot.py` will need to go down.
+- End-of-turn questions go through the island only when they come with reply buttons. A question with
+  an action button (Commit, Create PR) or with no button stays in the app's box. The relay relies on
+  an internal tool of the app, `mcp__ccd_turn__wrap_up`: if it is renamed, these questions simply
+  stay in the app.
 - The new Python install manager has not been tried. If it replaces `py`, check that
   `py -3.12-64 --version` still answers.
 - No Mac or Linux. The scripts do nothing there, but `py.exe` is missing, so Claude Code would show a

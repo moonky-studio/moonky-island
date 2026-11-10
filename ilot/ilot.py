@@ -8,6 +8,10 @@ au-dessus de toutes les applications, sans prendre le clavier, et renvoie ses
 réponses à la session. Mécanisme officiel depuis Claude Code 2.1.85 :
 permissionDecision « allow » avec les réponses dans updatedInput.answers.
 
+Même hook sur mcp__ccd_turn__wrap_up, le résumé de fin de tour de l'appli
+Claude : une question posée là avec des boutons de réponse passe aussi par
+l'îlot (voir fin_de_tour.py).
+
 Sans réponse dans l'îlot (bouton « Répondre dans Claude », délai dépassé,
 erreur, bibliothèque ou WebView2 absents, extension coupée), il ne renvoie
 rien : Claude affiche alors sa propre fenêtre. Le délai est de 9 minutes (voir
@@ -44,6 +48,7 @@ import traceback
 from ctypes import wintypes
 
 import commun
+import fin_de_tour
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 PAGE = os.path.splitext(os.path.abspath(__file__))[0] + '.html'
@@ -1130,9 +1135,18 @@ def main():
         else:
             entree = json.loads(sys.stdin.buffer.read().decode('utf-8', 'replace') or '{}')
         outil = entree.get('tool_input') or {}
-        questions = outil.get('questions') or []
-        if not questions or outil.get('answers'):
-            return
+        # question du résumé de fin de tour de l'appli Claude (wrap_up), relayée ici : voir fin_de_tour.py
+        fin_tour = not demo and str(entree.get('tool_name') or '') == fin_de_tour.OUTIL
+        if fin_tour:
+            if commun.coupe() or not fin_de_tour.active():
+                return
+            questions = fin_de_tour.questions(entree) or []
+            if not questions:
+                return
+        else:
+            questions = outil.get('questions') or []
+            if not questions or outil.get('answers'):
+                return
         if commun.coupe():
             if demo:
                 print(commun.t('Démo impossible : l’extension est coupée (installer.py --reprendre la rallume).',
@@ -1157,7 +1171,14 @@ def main():
             """Donne la réponse à Claude, une seule fois, que ce soit la fin normale ou le filet de sécurité."""
             if not une_fois.acquire(blocking=False):
                 return False
-            if reponses:
+            if reponses and fin_tour:
+                sortie = fin_de_tour.sortie(entree, reponses)
+                if sortie:
+                    sortie_json.write(json.dumps(sortie))
+                    sortie_json.flush()
+                    jalon('réponse écrite pour Claude')
+                    noter(f'réponse de fin de tour envoyée ({titre})')
+            elif reponses:
                 sortie = {
                     'hookSpecificOutput': {
                         'hookEventName': 'PreToolUse',
@@ -1186,8 +1207,9 @@ def main():
 
         def rendre_a_claude():
             """Voir DELAI_MAX : Claude pose la question lui-même et la pastille « attend ta réponse » le
-            signale, puisque l'îlot n'est plus là."""
-            if demo or not relais.acquire(blocking=False):
+            signale, puisque l'îlot n'est plus là. Une question de fin de tour n'en a pas besoin : le tour se
+            termine, et le hook de fin de tour lance la pastille."""
+            if demo or fin_tour or not relais.acquire(blocking=False):
                 return
             try:
                 premiere = questions[0] if isinstance(questions[0], dict) else {}
