@@ -1,0 +1,53 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py.exe",
+            "args": ["-3.12-64", "${CLAUDE_PLUGIN_ROOT}/ilot/rappel.py"],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^AskUserQuestion$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py.exe",
+            "args": ["-3.12-64", "${CLAUDE_PLUGIN_ROOT}/ilot/ilot.py"],
+            "timeout": 840,
+            "statusMessage": "Moonky Island"
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__ccd_turn__wrap_up$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py.exe",
+            "args": ["-3.12-64", "${CLAUDE_PLUGIN_ROOT}/ilot/garde_qcm.py"],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py.exe",
+            "args": ["-3.12-64", "${CLAUDE_PLUGIN_ROOT}/ilot/attente.py"],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

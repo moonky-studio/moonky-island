@@ -1,0 +1,14 @@
+{
+  "name": "moonky-island",
+  "description": "Moonky Island, a Claude Code plugin for Windows.",
+  "owner": {
+    "name": "Moonky"
+  },
+  "plugins": [
+    {
+      "name": "moonky-island",
+      "source": "./",
+      "description": "Claude's questions pop up at the top of your screen, and a small pill tells you when a session is waiting for your answer. Windows only."
+    }
+  ]
+}

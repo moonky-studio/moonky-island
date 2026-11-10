@@ -1,0 +1,10 @@
+{
+  "name": "moonky-island",
+  "description": "Claude's questions pop up at the top of your screen, and a small pill tells you when a session is waiting for your answer. Windows only.",
+  "author": {
+    "name": "Moonky"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/moonky-studio/moonky-island",
+  "repository": "https://github.com/moonky-studio/moonky-island"
+}

@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Moonky Island</title>
+<style>
+  :root {
+    --orange: #D97757;
+    --orange-survol: #E3876A;
+    --orange-clair: #F0A585;
+    --orange-trait: rgba(217, 119, 87, 0.8);
+    --blanc: rgba(255, 255, 255, 0.95);
+    --gris: rgba(235, 235, 245, 0.6);
+    --gris-pale: rgba(235, 235, 245, 0.36);
+    --remplissage: rgba(118, 118, 128, 0.16);
+    --remplissage-survol: rgba(118, 118, 128, 0.25);
+    --affichage: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --lecture: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --ressort-ui: cubic-bezier(0.3, 1.5, 0.5, 1);
+    --sortie: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: transparent; overflow: hidden; }
+  body {
+    font: 14px/1.4 var(--lecture); color: var(--blanc); user-select: none; cursor: default;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; outline: none; }
+  svg { display: block; flex: none; }
+  [hidden] { display: none !important; }
+
+  /* ---------- l'île ---------- */
+  #ile {
+    position: absolute; left: 50%; top: -60px; translate: -50% 0;
+    width: 120px; height: 30px; border-radius: 15px;
+    background: #000; overflow: hidden; isolation: isolate;
+    transition: scale 0.32s var(--ressort-ui);
+  }
+  #ile::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 5;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13); transition: box-shadow 0.25s;
+  }
+  #ile[data-mode="compact"] { cursor: pointer; }
+  #ile[data-mode="compact"]:hover::after { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24); }
+  #ile[data-mode="compact"]:active { scale: 0.965; }
+
+  .couche {
+    position: absolute; top: 0; left: 50%; translate: -50% 0;
+    opacity: 0; visibility: hidden; filter: blur(5px);
+    transition: opacity 0.13s ease-in, filter 0.13s ease-in, visibility 0s linear 0.13s;
+  }
+  #ile[data-mode="compact"] .compact,
+  #ile[data-mode="fin"] .final {
+    opacity: 1; visibility: visible; filter: blur(0);
+    transition: opacity 0.34s var(--sortie) 0.11s, filter 0.34s var(--sortie) 0.11s, visibility 0s;
+  }
+  #ile[data-mode="etendu"] .etendu { opacity: 1; visibility: visible; filter: none; transition: none; }
+
+  /* ---------- voyant : une session attend ---------- */
+  .voyant { position: relative; width: 8px; height: 8px; flex: none; }
+  .voyant::before, .voyant::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--orange); }
+  .voyant::after { opacity: 0; }
+  /* trois ondes à l'arrivée d'une attente, puis le voyant reste fixe : rien ne bouge pendant des heures */
+  #ile.onde .voyant::after { animation: onde 2.2s cubic-bezier(0.2, 0.6, 0.35, 1) 3; }
+  @keyframes onde {
+    0% { transform: scale(1); opacity: 0.55; }
+    75%, 100% { transform: scale(2.8); opacity: 0; }
+  }
+
+  /* ---------- pastille ---------- */
+  .compact {
+    height: 44px; width: max-content; display: flex; align-items: center; gap: 10px;
+    padding: 0 17px 0 16px; white-space: nowrap;
+  }
+  .c-titre {
+    font: 600 13.5px/1.1 var(--affichage); color: var(--blanc); letter-spacing: -0.005em;
+    max-width: 230px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .c-etat { font: 500 13px/1.1 var(--lecture); color: var(--gris); margin-left: -3px; }
+
+  /* ---------- panneau ---------- */
+  .etendu { width: 520px; height: 100%; display: flex; flex-direction: column; }
+  .etendu > * {
+    opacity: 0; transform: translateY(-6px) scale(0.985); filter: blur(4px);
+    transition: opacity 0.12s ease-in, transform 0.12s ease-in, filter 0.12s ease-in;
+  }
+  #ile[data-mode="etendu"] .etendu > * {
+    opacity: 1; transform: none; filter: blur(0);
+    transition: opacity 0.34s var(--sortie), transform 0.5s cubic-bezier(0.2, 0.9, 0.25, 1), filter 0.34s var(--sortie);
+  }
+  #ile[data-mode="etendu"] .etendu > header { transition-delay: 0.05s; }
+  #ile[data-mode="etendu"] .etendu > .pages { transition-delay: 0.09s; }
+  #ile[data-mode="etendu"] .etendu > footer { transition-delay: 0.13s; }
+
+  header { flex: none; height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 18px; }
+  .h-titre {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font: 600 14px/1.2 var(--affichage); color: var(--blanc); letter-spacing: -0.005em;
+  }
+  .h-age { flex: none; font: 400 12.5px/1.2 var(--lecture); color: var(--gris-pale); }
+  .espace { flex: 1; }
+  .rond {
+    width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; flex: none;
+    color: var(--gris); transition: background 0.15s, color 0.15s, scale 0.25s var(--ressort-ui);
+  }
+  .rond:hover { background: var(--remplissage-survol); color: #fff; }
+  .rond:active { scale: 0.9; }
+
+  .pages { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  .page {
+    position: absolute; top: 0; left: 0; right: 0; padding: 2px 18px 18px;
+    max-height: var(--page-max, 640px); overflow-y: auto; overscroll-behavior: contain;
+  }
+  .page::-webkit-scrollbar { width: 8px; }
+  .page::-webkit-scrollbar-thumb { background: rgba(118, 118, 128, 0.4); border-radius: 8px; border: 2px solid #000; }
+  .page::-webkit-scrollbar-button { display: none; height: 0; }
+  .q-texte {
+    font: 500 15px/1.45 var(--lecture); color: #fff; white-space: pre-line; text-wrap: pretty;
+    user-select: text; cursor: text;
+  }
+
+  /* ---------- plusieurs sessions ---------- */
+  .carte {
+    position: relative; padding: 10px 12px 12px 14px; margin-bottom: 8px; border-radius: 14px;
+    background: var(--remplissage); cursor: pointer; outline: none;
+    transition: background 0.15s, transform 0.25s var(--ressort-ui);
+  }
+  .carte:last-child { margin-bottom: 0; }
+  .carte:hover { background: var(--remplissage-survol); }
+  .carte:active { transform: scale(0.985); }
+  @supports (corner-shape: squircle) {
+    .carte { corner-shape: squircle; border-radius: 22px; }
+  }
+  .k-entete { display: flex; align-items: center; gap: 8px; height: 20px; margin-bottom: 3px; }
+  .k-titre {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font: 600 12px/1.2 var(--affichage); color: var(--orange-clair); letter-spacing: 0.01em;
+  }
+  .k-age { flex: none; font: 400 12px/1.2 var(--lecture); color: var(--gris-pale); transition: opacity 0.15s; }
+  .k-texte {
+    font: 500 14px/1.38 var(--lecture); color: var(--blanc); white-space: pre-line;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  }
+  /* la croix prend la place de l'heure au survol */
+  .k-x {
+    position: absolute; top: 9px; right: 9px; width: 22px; height: 22px; border-radius: 11px;
+    display: grid; place-items: center; color: var(--gris); background: rgba(118, 118, 128, 0.3);
+    opacity: 0; scale: 0.8; pointer-events: none;
+    transition: opacity 0.15s, scale 0.3s var(--ressort-ui), background 0.15s, color 0.15s;
+  }
+  .carte:hover .k-x, body.clavier .carte:focus-visible .k-x { opacity: 1; scale: 1; pointer-events: auto; }
+  .carte:hover .k-age, body.clavier .carte:focus-visible .k-age { opacity: 0; }
+  .k-x:hover { background: rgba(118, 118, 128, 0.5); color: #fff; }
+  .k-x:active { scale: 0.88; }
+  body.clavier .carte:focus-visible, body.clavier button:focus-visible { outline: 2px solid var(--orange-trait); outline-offset: 2px; }
+
+  /* ---------- pied ---------- */
+  footer {
+    flex: none; height: 58px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 9px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+  .discret {
+    display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 17px; flex: none;
+    font: 500 13px/1 var(--lecture); color: var(--gris); transition: background 0.15s, color 0.15s;
+  }
+  .discret:hover { background: var(--remplissage); color: #fff; }
+  header .discret { height: 30px; padding: 0 11px; border-radius: 15px; font-size: 12.5px; }
+  .principal {
+    display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 16px 0 18px; border-radius: 17px;
+    font: 600 13.5px/1 var(--affichage); color: #fff; background: var(--orange);
+    transition: background 0.22s, scale 0.3s var(--ressort-ui);
+  }
+  .principal:hover { background: var(--orange-survol); }
+  .principal:active { scale: 0.95; }
+
+  /* ---------- fin ---------- */
+  .final {
+    height: 44px; width: max-content; display: flex; align-items: center; gap: 9px; padding: 0 18px 0 11px;
+    font: 600 13.5px/1 var(--affichage); color: #fff; white-space: nowrap;
+  }
+  .f-icone { width: 22px; height: 22px; border-radius: 11px; background: var(--orange); display: grid; place-items: center; color: #fff; }
+  .f-icone path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+  #ile[data-mode="fin"] .f-icone { animation: pop 0.55s var(--ressort-ui) 0.1s both; }
+  #ile[data-mode="fin"] .f-icone path { stroke-dashoffset: 0; transition: stroke-dashoffset 0.32s cubic-bezier(0.3, 0.8, 0.3, 1) 0.24s; }
+  @keyframes pop { from { scale: 0.4; opacity: 0; } to { scale: 1; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01s !important; animation-duration: 0.01s !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="ile" data-mode="arrivee" role="dialog" aria-live="polite">
+    <div class="couche compact" id="compact">
+      <span class="voyant"></span>
+      <span class="c-titre" id="c-titre"></span>
+      <span class="c-etat" id="c-etat"></span>
+    </div>
+
+    <div class="couche etendu" id="etendu">
+      <header>
+        <span class="voyant"></span>
+        <span class="h-titre" id="h-titre"></span>
+        <span class="espace"></span>
+        <span class="h-age" id="h-age"></span>
+        <button class="discret" id="tout" hidden></button>
+        <button class="rond" id="replier">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14.5 6-6 6 6"/></svg>
+        </button>
+      </header>
+      <div class="pages"><section class="page" id="page"></section></div>
+      <footer id="pied">
+        <button class="discret" id="ignorer"></button>
+        <span class="espace"></span>
+        <button class="principal" id="ouvrir">
+          <span id="o-texte"></span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </button>
+      </footer>
+    </div>
+
+    <div class="couche final" id="final">
+      <span class="f-icone" id="f-icone"></span>
+      <span id="f-texte"></span>
+    </div>
+  </div>
+
+<script>
+  const D = __DONNEES__;
+  const EN = D.langue === 'en';
+  const T = EN ? {
+    sansTitre: 'Untitled session', instant: 'just now', min: (m) => `${m} min ago`, h: (h) => `${h} h ago`,
+    sessions: (n) => `${n} sessions`, attend: 'waiting for your answer', attendent: 'waiting for your answer',
+    plusieurs: (n) => `${n} sessions are waiting for your answer`,
+    ouvrir: 'Open the chat', ouvrirEntree: 'Open the chat (Enter)', ignorer: 'Dismiss',
+    ignorerSuppr: 'Dismiss (Del)', tout: 'Dismiss all', reduire: 'Collapse', reduireEchap: 'Collapse (Esc)',
+    ouvert: 'Opened in Claude',
+  } : {
+    sansTitre: 'Session sans titre', instant: 'à l’instant', min: (m) => `il y a ${m} min`, h: (h) => `il y a ${h} h`,
+    sessions: (n) => `${n} sessions`, attend: 'attend ta réponse', attendent: 'attendent ta réponse',
+    plusieurs: (n) => `${n} sessions attendent ta réponse`,
+    ouvrir: 'Ouvrir la discussion', ouvrirEntree: 'Ouvrir la discussion (Entrée)', ignorer: 'Ignorer',
+    ignorerSuppr: 'Ignorer (Suppr)', tout: 'Tout ignorer', reduire: 'Réduire', reduireEchap: 'Réduire (Échap)',
+    ouvert: 'Ouvert dans Claude',
+  };
+  document.documentElement.lang = EN ? 'en' : 'fr';
+  document.getElementById('tout').textContent = T.tout;
+  document.getElementById('replier').title = T.reduireEchap;
+  document.getElementById('replier').setAttribute('aria-label', T.reduire);
+  document.getElementById('ignorer').title = T.ignorerSuppr;
+  document.getElementById('ignorer').textContent = T.ignorer;
+  document.getElementById('ouvrir').title = T.ouvrirEntree;
+  document.getElementById('o-texte').textContent = T.ouvrir;
+
+  // ---------- outils ----------
+  const $ = (s, r = document) => r.querySelector(s);
+  const ile = $('#ile');
+  const reduit = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+  function appel(nom, ...args) {
+    try {
+      const f = window.pywebview && window.pywebview.api && window.pywebview.api[nom];
+      return f ? Promise.resolve(f(...args)).catch(() => null) : Promise.resolve(null);
+    } catch (e) { return Promise.resolve(null); }
+  }
+  // typographie française : espaces insécables et apostrophe courbe, à l'affichage seulement ; sans effet sur un
+  // texte anglais, qui n'a pas d'espace avant ces signes (les titres suivent la langue de la discussion)
+  const fr = (t) => String(t)
+    .replace(/ ([?!;%])/g, ' $1').replace(/ ([:»])/g, ' $1').replace(/« /g, '« ').replace(/'/g, '’');
+  function el(balise, classe, texte) {
+    const e = document.createElement(balise);
+    if (classe) e.className = classe;
+    if (texte !== undefined) e.textContent = fr(texte);
+    return e;
+  }
+
+  // ressort amorti échantillonné en easing linear() : réponse en secondes, amortissement entre 0 et 1
+  function ressort(reponse, amorti) {
+    if (reduit) return { duration: 1, easing: 'linear' };
+    const w0 = 2 * Math.PI / reponse, z = amorti, wd = w0 * Math.sqrt(1 - z * z);
+    const x = (t) => 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + (z * w0 / wd) * Math.sin(wd * t));
+    let T = 0;
+    for (let t = 0; t < 3; t += 0.004) if (Math.abs(1 - x(t)) > 0.002) T = t;
+    const pts = [];
+    for (let i = 0; i <= 60; i++) pts.push(+x(T * i / 60).toFixed(4));
+    return { duration: Math.round(T * 1000), easing: 'linear(' + pts.join(', ') + ')' };
+  }
+  const R_ARRIVEE = ressort(0.62, 0.72);
+  const R_OUVRIR = ressort(0.52, 0.8);
+  const R_FERMER = ressort(0.44, 0.88);
+  const R_PAGE = ressort(0.42, 0.86);
+
+  const CROIX = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  const FLECHE_FIN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path pathLength="1" d="M7 17 17 7M8 7h9v9"/></svg>';
+
+  // ---------- données ----------
+  const cle = (e) => e.local + '|' + e.depuis;
+  const parDate = (a, b) => b.depuis - a.depuis;  // la plus récente en haut
+  const titreDe = (e) => String(e.titre || '').trim() || T.sansTitre;
+  let liste = (D.entrees || []).slice().sort(parDate);
+  const retires = new Set();  // écartées ou ouvertes ici : ignorées si une mise à jour arrive avant leur effacement
+  let mode = 'arrivee';
+  let fini = false;
+  let rang = D.rang || 0;
+  const LARGEUR = 520, R_PANNEAU = 30, H_PASTILLE = 44;
+  const haut = () => 12 + rang * 56;
+
+  function ageDe(depuis) {
+    const s = Math.max(0, Date.now() / 1000 - depuis);
+    if (s < 60) return T.instant;
+    const m = Math.floor(s / 60);
+    if (m < 60) return T.min(m);
+    return T.h(Math.floor(m / 60));
+  }
+  setInterval(() => {
+    document.querySelectorAll('[data-depuis]').forEach((n) => { n.textContent = ageDe(Number(n.dataset.depuis)); });
+  }, 30000);
+
+  // ---------- construction ----------
+  function textesPastille() {
+    if (!liste.length) return;
+    const un = liste.length === 1;
+    $('#c-titre').textContent = un ? fr(titreDe(liste[0])) : T.sessions(liste.length);
+    $('#c-etat').textContent = un ? T.attend : T.attendent;
+  }
+
+  function textesPanneau() {
+    if (!liste.length) return;
+    const un = liste.length === 1;
+    $('#h-titre').textContent = un ? fr(titreDe(liste[0])) : T.plusieurs(liste.length);
+    const age = $('#h-age');
+    age.hidden = !un;
+    if (un) {
+      age.dataset.depuis = String(liste[0].depuis);
+      age.textContent = ageDe(liste[0].depuis);
+    } else {
+      delete age.dataset.depuis;
+    }
+    $('#tout').hidden = un;
+    $('#pied').hidden = !un;
+  }
+
+  function carte(e) {
+    const c = el('div', 'carte');
+    c.tabIndex = 0;
+    c.setAttribute('role', 'button');
+    c.dataset.cle = cle(e);
+    c.title = T.ouvrir;
+    const tete = el('div', 'k-entete');
+    const age = el('span', 'k-age', ageDe(e.depuis));
+    age.dataset.depuis = String(e.depuis);
+    tete.append(el('span', 'k-titre', titreDe(e)), el('span', 'espace'), age);
+    const x = el('button', 'k-x');
+    x.tabIndex = -1;
+    x.title = T.ignorerSuppr;
+    x.setAttribute('aria-label', T.ignorer);
+    x.innerHTML = CROIX;
+    x.onclick = (ev) => { ev.stopPropagation(); ignorer(e, c); };
+    c.append(tete, el('p', 'k-texte', e.texte || ''), x);
+    c.onclick = (ev) => { ev.stopPropagation(); ouvrir(e); };
+    return c;
+  }
+
+  function dessiner() {
+    textesPastille();
+    textesPanneau();
+    const page = $('#page');
+    page.replaceChildren(...(liste.length === 1 ? [el('p', 'q-texte', liste[0].texte || '')] : liste.map((e) => carte(e))));
+    page.scrollTop = 0;
+  }
+
+  // ---------- géométrie de l'île et zone cliquable ----------
+  let geo = { w: 120, h: 30, r: 15, t: -60 };
+  let animIle = null;
+  let seqZone = 0;
+  const MARGE = 3;
+
+  function appliquer(g) {
+    ile.style.width = g.w + 'px';
+    ile.style.height = g.h + 'px';
+    ile.style.borderRadius = g.r + 'px';
+    ile.style.top = g.t + 'px';
+  }
+  // forme réellement affichée, y compris au milieu d'une animation
+  function geoActuelle() {
+    const s = getComputedStyle(ile);
+    return { w: parseFloat(s.width), h: parseFloat(s.height), r: parseFloat(s.borderTopLeftRadius), t: parseFloat(s.top) };
+  }
+  // la fenêtre ne capte les clics que sur l'île : Python découpe la fenêtre à cette forme
+  function zone(x, y, w, h, r, devant) {
+    const p = appel('zone', ++seqZone, x, y, w, h, r, window.devicePixelRatio || 1, !!devant);
+    return Promise.race([p, attendre(60)]);
+  }
+  function zoneForme(g, devant) {
+    const cx = window.innerWidth / 2;
+    zone(cx - g.w / 2 - MARGE, g.t - MARGE, g.w + 2 * MARGE, g.h + 2 * MARGE, g.r + MARGE, devant);
+  }
+  // pendant une animation : rectangle qui couvre le départ, l'arrivée et le dépassement du ressort
+  function zoneUnion(a, b, devant) {
+    const cx = window.innerWidth / 2;
+    const w = Math.max(a.w, b.w), ex = 8 + Math.abs(a.w - b.w) * 0.07;
+    const basA = a.t + a.h, basB = b.t + b.h, ey = 8 + Math.abs(basA - basB) * 0.08;
+    const t = Math.max(0, Math.min(a.t, b.t) - 8);
+    return zone(cx - w / 2 - ex, t, w + 2 * ex, Math.max(basA, basB) + ey - t, 0, devant);
+  }
+  let seqMorph = 0;
+  async function morph(vers, r, devant) {
+    const jeton = ++seqMorph;
+    geo = { ...vers };
+    await zoneUnion(geoActuelle(), vers, devant);
+    if (jeton !== seqMorph) return false;
+    const de = geoActuelle();
+    if (animIle) animIle.cancel();
+    appliquer(vers);
+    const a = ile.animate([
+      { width: de.w + 'px', height: de.h + 'px', borderRadius: de.r + 'px', top: de.t + 'px' },
+      { width: vers.w + 'px', height: vers.h + 'px', borderRadius: vers.r + 'px', top: vers.t + 'px' },
+    ], { duration: r.duration, easing: r.easing });
+    animIle = a;
+    try { await a.finished; } catch (e) { return false; }
+    if (animIle !== a) return false;
+    animIle = null;
+    zoneForme(vers);
+    return true;
+  }
+
+  const largeurCompacte = () => Math.ceil($('#compact').offsetWidth);
+  function geoPastille() { return { w: largeurCompacte(), h: H_PASTILLE, r: H_PASTILLE / 2, t: haut() }; }
+  // ote : hauteur d'une carte en train de disparaître, retirée d'avance pour que l'île se resserre avec elle
+  function geoPanneau(ote = 0) {
+    const pied = $('#pied').hidden ? 0 : 58;
+    const dispo = window.innerHeight - haut() - 14;
+    const max = Math.max(120, dispo - 50 - pied);
+    document.documentElement.style.setProperty('--page-max', max + 'px');
+    const contenu = $('#page').scrollHeight - ote;
+    return { w: LARGEUR, h: Math.min(dispo, 50 + Math.min(contenu, max) + pied), r: R_PANNEAU, t: haut() };
+  }
+  const geoMode = () => (mode === 'etendu' ? geoPanneau() : geoPastille());
+
+  // ---------- états ----------
+  function changerMode(m) { mode = m; ile.dataset.mode = m; }
+
+  function pulser() {
+    ile.classList.remove('onde');
+    void ile.offsetWidth;
+    ile.classList.add('onde');
+  }
+
+  async function arrivee() {
+    changerMode('compact');
+    pulser();
+    const cible = geoPastille();
+    geo = { w: Math.min(cible.w, 132), h: 30, r: 15, t: -44 };
+    appliquer(geo);
+    appel('pret');
+    await morph(cible, R_ARRIVEE);
+  }
+
+  function deplier() {
+    if (mode !== 'compact' || fini) return Promise.resolve(false);
+    dessiner();
+    changerMode('etendu');
+    appel('focus');
+    return morph(geoPanneau(), R_OUVRIR, true);
+  }
+
+  // rendre : réduite par l'utilisateur lui-même (Échap, chevron), le clavier retourne à sa fenêtre
+  function replier(rendre) {
+    if (mode !== 'etendu') return Promise.resolve(false);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    changerMode('compact');
+    if (rendre === true) appel('rendre_focus');
+    return morph(geoPastille(), R_FERMER);
+  }
+
+  function perteFocus() {
+    if (mode === 'etendu') replier();
+  }
+
+  function changerRang(n) {
+    if (n === rang) return;
+    rang = n;
+    if (mode === 'compact') morph(geoPastille(), R_PAGE);
+    else if (mode === 'etendu') morph(geoPanneau(), R_PAGE);
+    else if (mode === 'fin') morph({ ...geo, t: haut() }, R_PAGE);
+  }
+
+  // le contenu du panneau change : fondu enchaîné pendant que l'île prend sa nouvelle taille
+  let fondu = null;
+  async function enchainer(changer) {
+    const page = $('#page');
+    if (mode !== 'etendu' || reduit) { changer(); return morph(geoMode(), R_PAGE); }
+    if (fondu) fondu.cancel();
+    const sortie = page.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 90, easing: 'ease-in', fill: 'forwards' });
+    fondu = sortie;
+    try { await sortie.finished; } catch (e) { return false; }
+    if (fondu !== sortie) return false;
+    changer();
+    sortie.cancel();
+    fondu = page.animate([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 300, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+    return morph(geoMode(), R_PAGE);
+  }
+
+  const cartes = () => [...document.querySelectorAll('.carte')];
+  const entreeDe = (n) => n && liste.find((e) => cle(e) === n.dataset.cle);
+  function cleFocus() {
+    const a = document.activeElement;
+    return a && a.classList && a.classList.contains('carte') ? a.dataset.cle : null;
+  }
+  function remettreFocus(k) {
+    if (!k || mode !== 'etendu') return;
+    const n = cartes().find((c) => c.dataset.cle === k) || cartes()[0];
+    if (n) n.focus();
+  }
+
+  // ---------- actions ----------
+  function ouvrir(e) {
+    if (fini || !e) return;
+    retires.add(cle(e));
+    appel('ouvrir', e.local, e.depuis);
+    liste = liste.filter((x) => cle(x) !== cle(e));
+    if (!liste.length) {
+      fini = true;
+      adieu(T.ouvert, FLECHE_FIN);
+      return;
+    }
+    // Claude passe devant : la pastille se replie sur les sessions qui restent, le panneau sera refait à la prochaine ouverture
+    textesPastille();
+    if (mode === 'etendu') replier();
+    else if (mode === 'compact') morph(geoPastille(), R_PAGE);
+  }
+
+  function ignorer(e, noeud) {
+    if (fini || !e) return;
+    retires.add(cle(e));
+    appel('ecarter', e.local, e.depuis);
+    liste = liste.filter((x) => cle(x) !== cle(e));
+    if (!liste.length) { vider(); return; }
+    textesPastille();
+    if (mode !== 'etendu') {
+      if (mode === 'compact') morph(geoPastille(), R_PAGE);
+      return;
+    }
+    if (noeud && noeud.isConnected && liste.length > 1 && !reduit) { replierCarte(noeud); return; }
+    const k = cleFocus();
+    enchainer(() => { dessiner(); remettreFocus(k); });
+  }
+
+  // la carte s'efface en se repliant, l'île se resserre en même temps
+  async function replierCarte(noeud) {
+    const voisine = noeud.nextElementSibling || noeud.previousElementSibling;
+    const k = document.activeElement === noeud ? (voisine && voisine.dataset.cle) : cleFocus();
+    textesPanneau();
+    const ote = noeud.offsetHeight + 8;
+    const s = getComputedStyle(noeud);
+    noeud.style.overflow = 'hidden';
+    noeud.style.pointerEvents = 'none';
+    const a = noeud.animate([
+      { opacity: 1, height: noeud.offsetHeight + 'px', paddingTop: s.paddingTop, paddingBottom: s.paddingBottom, marginBottom: s.marginBottom, transform: 'scale(1)' },
+      { opacity: 0, height: '0px', paddingTop: '0px', paddingBottom: '0px', marginBottom: '0px', transform: 'scale(0.96)' },
+    ], { duration: 260, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'forwards' });
+    morph(geoPanneau(ote), R_PAGE);
+    try { await a.finished; } catch (e) { /* carte déjà retirée */ }
+    if (fini || mode !== 'etendu' || !noeud.isConnected) return;
+    // les autres cartes restent en place : pas de reconstruction, le défilement ne saute pas
+    noeud.remove();
+    remettreFocus(k);
+    const g = geoPanneau();
+    if (Math.abs(g.h - geo.h) > 1) morph(g, R_PAGE);
+  }
+
+  function toutIgnorer() {
+    if (fini) return;
+    appel('ecarter_tout', liste.map((e) => [e.local, e.depuis]));
+    liste.forEach((e) => retires.add(cle(e)));
+    liste = [];
+    vider();
+  }
+
+  // plus rien n'attend : l'île repart vers le haut, comme elle est venue
+  async function vider() {
+    if (fini) return;
+    fini = true;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    changerMode('vide');
+    if (!reduit) {
+      ile.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, delay: 90, easing: 'ease-in', fill: 'forwards' });
+      await morph({ w: Math.min(geo.w, 120), h: 30, r: 15, t: -44 }, R_FERMER);
+    }
+    appel('fin');
+  }
+
+  async function adieu(texte, icone) {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    $('#f-texte').textContent = texte;
+    $('#f-icone').innerHTML = icone;
+    changerMode('fin');
+    await morph({ w: Math.ceil($('#final').offsetWidth), h: H_PASTILLE, r: H_PASTILLE / 2, t: haut() }, R_FERMER);
+    await attendre(reduit ? 250 : 440);
+    if (!reduit) {
+      // la pastille remonte en s'effaçant : la découpe s'ouvre vers le haut pour ne pas lui couper le sommet
+      const cx = window.innerWidth / 2, haut0 = Math.max(0, geo.t - 20);
+      await zone(cx - geo.w / 2 - MARGE, haut0, geo.w + 2 * MARGE, geo.t + geo.h + MARGE - haut0, 0);
+      await ile.animate(
+        [{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(-14px) scale(0.92)' }],
+        { duration: 210, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' }).finished;
+    }
+    appel('fin');
+  }
+
+  // liste relue par Python : réponses données ailleurs, sessions vues dans Claude, nouvelles attentes
+  function maj(L) {
+    if (fini) return;
+    const nouvelle = (Array.isArray(L) ? L : []).filter((e) => e && !retires.has(cle(e))).sort(parDate);
+    const pareil = nouvelle.length === liste.length && nouvelle.every((e, i) =>
+      cle(e) === cle(liste[i]) && e.titre === liste[i].titre && e.texte === liste[i].texte);
+    if (pareil) return;
+    if (!nouvelle.length) { vider(); return; }
+    const connues = new Set(liste.map(cle));
+    const ajout = nouvelle.some((e) => !connues.has(cle(e)));
+    liste = nouvelle;
+    if (ajout) pulser();
+    textesPastille();
+    if (mode === 'etendu') {
+      const k = cleFocus();
+      enchainer(() => { dessiner(); remettreFocus(k); });
+    } else if (mode === 'compact') {
+      morph(geoPastille(), ajout ? R_ARRIVEE : R_PAGE);
+    }
+  }
+
+  // ---------- clavier ----------
+  function clavier(oui) { document.body.classList.toggle('clavier', oui); }
+  window.addEventListener('pointermove', (e) => { if (Math.abs(e.movementX) + Math.abs(e.movementY) > 1) clavier(false); });
+
+  document.addEventListener('keydown', (e) => {
+    if (mode !== 'etendu' || fini) return;
+    if (e.key === 'Escape') { e.preventDefault(); replier(true); return; }
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    const actif = document.activeElement;
+    const surBouton = !!actif && actif.tagName === 'BUTTON';
+    const surCarte = !!actif && !!actif.classList && actif.classList.contains('carte');
+    const efface = e.key === 'Delete' || e.key === 'Backspace';
+    if (e.key === 'Tab') { clavier(true); return; }
+    if (liste.length === 1) {
+      if (e.key === 'Enter' && !surBouton) { e.preventDefault(); ouvrir(liste[0]); }
+      else if (efface) { e.preventDefault(); ignorer(liste[0]); }
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (surCarte) { e.preventDefault(); ouvrir(entreeDe(actif)); }
+      else if (!surBouton) { e.preventDefault(); clavier(true); const c = cartes()[0]; if (c) c.focus(); }
+      return;
+    }
+    if (efface) {
+      if (surCarte) { e.preventDefault(); ignorer(entreeDe(actif), actif); }
+      return;
+    }
+    // touche physique et non caractère : sur un clavier AZERTY, la touche 1 donne « & »
+    const touche = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
+    const n = touche ? Number(touche[1]) : (/^[1-9]$/.test(e.key) ? Number(e.key) : 0);
+    if (n) {
+      if (n <= liste.length) { e.preventDefault(); ouvrir(liste[n - 1]); }
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      clavier(true);
+      const L = cartes();
+      if (!L.length) return;
+      const k = L.indexOf(actif);
+      const suivant = e.key === 'ArrowDown' ? (k + 1) % L.length : (k <= 0 ? L.length - 1 : k - 1);
+      L[suivant].focus();
+    }
+  });
+
+  // ---------- branchements ----------
+  ile.addEventListener('click', () => { if (mode === 'compact') deplier(); });
+  $('#replier').onclick = (e) => { e.stopPropagation(); replier(true); };
+  $('#ouvrir').onclick = (e) => { e.stopPropagation(); ouvrir(liste[0]); };
+  $('#ignorer').onclick = (e) => { e.stopPropagation(); ignorer(liste[0]); };
+  $('#tout').onclick = (e) => { e.stopPropagation(); toutIgnorer(); };
+  window.addEventListener('blur', () => setTimeout(() => { if (!document.hasFocus()) perteFocus(); }, 60));
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // accès pour Python et pour les essais
+  window.ilot = {
+    maj, vider, changerRang, perteFocus, deplier, replier, toutIgnorer, pulser,
+    ouvrir: (i = 0) => ouvrir(liste[i]),
+    ignorer: (i = 0) => ignorer(liste[i], cartes()[i]),
+    etat: () => ({ mode, n: liste.length, fini, rang, titres: liste.map(titreDe) }),
+    cadre: () => { const r = ile.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, dpr: window.devicePixelRatio || 1 }; },
+  };
+
+  // essai automatique (ILOT_TEST_AUTO) : ouvre le panneau, puis la première discussion ; jamais de clavier
+  async function essaiAuto() {
+    await attendre(1000);
+    await deplier();
+    await attendre(4900);
+    if (!fini && liste.length) ouvrir(liste[0]);
+  }
+
+  let demarre = false;
+  function demarrer() {
+    if (demarre) return;
+    demarre = true;
+    if (!liste.length) { appel('fin'); return; }
+    dessiner();
+    requestAnimationFrame(async () => {
+      await arrivee();
+      if (D.test) essaiAuto();
+    });
+  }
+  window.addEventListener('pywebviewready', demarrer);
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.zone) demarrer();
+</script>
+</body>
+</html>

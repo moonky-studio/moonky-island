@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Moonky Island</title>
+<style>
+  :root {
+    --orange: #D97757;
+    --orange-survol: #E3876A;
+    --orange-clair: #F0A585;
+    --orange-fond: rgba(217, 119, 87, 0.17);
+    --orange-trait: rgba(217, 119, 87, 0.8);
+    --blanc: rgba(255, 255, 255, 0.95);
+    --gris: rgba(235, 235, 245, 0.6);
+    --gris-pale: rgba(235, 235, 245, 0.36);
+    --remplissage: rgba(118, 118, 128, 0.16);
+    --remplissage-survol: rgba(118, 118, 128, 0.25);
+    --affichage: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --lecture: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --ressort-ui: cubic-bezier(0.3, 1.5, 0.5, 1);
+    --sortie: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: transparent; overflow: hidden; }
+  body {
+    font: 14px/1.4 var(--lecture); color: var(--blanc); user-select: none; cursor: default;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; outline: none; }
+  button:disabled { cursor: default; }
+  svg { display: block; flex: none; }
+  [hidden] { display: none !important; }
+
+  /* ---------- l'île ---------- */
+  #ile {
+    position: absolute; left: 50%; top: -60px; translate: -50% 0;
+    width: 120px; height: 30px; border-radius: 15px;
+    background: #000; overflow: hidden; overflow: clip; isolation: isolate;
+    transition: scale 0.32s var(--ressort-ui);
+  }
+  #ile::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 5;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13); transition: box-shadow 0.25s;
+  }
+  #ile[data-mode="compact"] { cursor: pointer; }
+  #ile[data-mode="compact"]:hover::after { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24); }
+  #ile[data-mode="compact"]:active { scale: 0.965; }
+
+  .couche {
+    position: absolute; top: 0; left: 50%; translate: -50% 0;
+    opacity: 0; visibility: hidden; filter: blur(5px);
+    transition: opacity 0.13s ease-in, filter 0.13s ease-in, visibility 0s linear 0.13s;
+  }
+  #ile[data-mode="compact"] .compact,
+  #ile[data-mode="fin"] .final {
+    opacity: 1; visibility: visible; filter: blur(0);
+    transition: opacity 0.34s var(--sortie) 0.11s, filter 0.34s var(--sortie) 0.11s, visibility 0s;
+  }
+  #ile[data-mode="etendu"] .etendu { opacity: 1; visibility: visible; filter: none; transition: none; }
+
+  /* ---------- étincelle ---------- */
+  .etincelle { color: var(--orange); display: grid; place-items: center; flex: none; }
+  .etincelle svg { transition: rotate 0.6s var(--ressort-ui); }
+  .compact .etincelle svg { animation: respire 3.4s ease-in-out infinite; }
+  #ile[data-mode="compact"]:hover .compact .etincelle svg { rotate: 36deg; }
+  @keyframes respire {
+    0%, 100% { transform: scale(0.84); opacity: 0.78; }
+    50% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ---------- pastille ---------- */
+  .compact {
+    height: 44px; width: max-content; display: flex; align-items: center; gap: 10px;
+    padding: 0 9px 0 12px; white-space: nowrap;
+  }
+  .compact .etincelle { width: 20px; height: 20px; }
+  .c-titre {
+    font: 600 13.5px/1.1 var(--affichage); color: var(--blanc); letter-spacing: -0.005em;
+    max-width: 260px; overflow: hidden; text-overflow: ellipsis; padding-right: 2px;
+  }
+  .badge {
+    width: 26px; height: 26px; border-radius: 13px; background: var(--orange); color: #fff;
+    display: grid; place-items: center; font: 700 12.5px/1 var(--affichage);
+    transition: scale 0.35s var(--ressort-ui);
+  }
+  .badge svg { grid-area: 1 / 1; }
+  #ile[data-mode="compact"]:hover .badge { scale: 1.08; }
+
+  /* ---------- panneau ---------- */
+  .etendu { width: 600px; height: 100%; display: flex; flex-direction: column; }
+  .etendu > * {
+    opacity: 0; transform: translateY(-6px) scale(0.985); filter: blur(4px);
+    transition: opacity 0.12s ease-in, transform 0.12s ease-in, filter 0.12s ease-in;
+  }
+  #ile[data-mode="etendu"] .etendu > * {
+    opacity: 1; transform: none; filter: blur(0);
+    transition: opacity 0.34s var(--sortie), transform 0.5s cubic-bezier(0.2, 0.9, 0.25, 1), filter 0.34s var(--sortie);
+  }
+  #ile[data-mode="etendu"] .etendu > header { transition-delay: 0.05s; }
+  #ile[data-mode="etendu"] .etendu > .pages { transition-delay: 0.09s; }
+  #ile[data-mode="etendu"] .etendu > footer { transition-delay: 0.13s; }
+
+  header { flex: none; height: 50px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 17px; }
+  header .etincelle { width: 16px; height: 16px; }
+  .h-titre {
+    display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 380px;
+    padding: 6px 8px; margin-left: -4px; border-radius: 9px;
+    font: 600 13px/1.1 var(--affichage); color: var(--gris); transition: color 0.15s, background 0.15s;
+  }
+  .h-titre span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .h-titre svg { opacity: 0; translate: -3px 3px; transition: opacity 0.15s, translate 0.25s var(--sortie); }
+  .h-titre:not(:disabled):hover { color: #fff; background: var(--remplissage); }
+  .h-titre:not(:disabled):hover svg { opacity: 0.85; translate: 0 0; }
+  .espace { flex: 1; }
+  .points { display: flex; align-items: center; }
+  .point { width: 20px; height: 26px; display: grid; place-items: center; }
+  .point::before {
+    content: ""; width: 6px; height: 6px; border-radius: 3px; background: rgba(235, 235, 245, 0.24);
+    transition: width 0.45s var(--ressort-ui), background 0.2s;
+  }
+  .point:hover::before { background: rgba(255, 255, 255, 0.6); }
+  .point.repondu::before { background: rgba(217, 119, 87, 0.75); }
+  .point.actuel::before { width: 16px; background: rgba(255, 255, 255, 0.92); }
+  .point.actuel.repondu::before { background: var(--orange); }
+  .rond {
+    width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; margin-left: 2px;
+    color: var(--gris); transition: background 0.15s, color 0.15s, scale 0.25s var(--ressort-ui);
+  }
+  .rond:hover { background: var(--remplissage-survol); color: #fff; }
+  .rond:active { scale: 0.9; }
+
+  /* clip et non hidden : un conteneur hidden défile quand même sous un focus (champ focalisé pendant que le
+     panneau grandit), et le décalage restait ensuite (haut de la question coupé, vide en bas) */
+  .pages { flex: 1; min-height: 0; position: relative; overflow: hidden; overflow: clip; }
+  .page {
+    position: absolute; top: 0; left: 0; right: 0; padding: 2px 18px 18px;
+    max-height: var(--page-max, 640px); overflow-y: auto; overscroll-behavior: contain;
+    visibility: hidden;
+  }
+  .page.visible { visibility: visible; }
+  .page::-webkit-scrollbar { width: 8px; }
+  .page::-webkit-scrollbar-thumb { background: rgba(118, 118, 128, 0.4); border-radius: 8px; border: 2px solid #000; }
+  .page::-webkit-scrollbar-button { display: none; height: 0; }
+  .q-entete { font: 600 12px/1.2 var(--affichage); color: var(--orange-clair); letter-spacing: 0.01em; margin-bottom: 7px; }
+  .q-texte {
+    font: 600 16px/1.38 var(--affichage); color: #fff; letter-spacing: -0.01em; margin-bottom: 14px;
+    text-wrap: pretty; user-select: text; cursor: text;
+  }
+
+  .options { display: flex; flex-direction: column; gap: 6px; }
+  .option {
+    display: grid; grid-template-columns: 20px 1fr auto; align-items: start; column-gap: 12px;
+    width: 100%; text-align: left; padding: 11px 12px 11px 13px; border-radius: 14px;
+    background: var(--remplissage);
+    transition: background 0.15s, box-shadow 0.2s, transform 0.25s var(--ressort-ui);
+  }
+  .option:hover { background: var(--remplissage-survol); }
+  .option:active { transform: scale(0.985); }
+  .option.choisi { background: var(--orange-fond); box-shadow: inset 0 0 0 1.25px var(--orange-trait); }
+  .indic {
+    width: 20px; height: 20px; margin-top: 0.5px; border-radius: 50%; display: grid; place-items: center;
+    color: #fff; box-shadow: inset 0 0 0 1.5px rgba(235, 235, 245, 0.3);
+    transition: background 0.18s, box-shadow 0.18s, scale 0.4s var(--ressort-ui);
+  }
+  .multiple .indic { border-radius: 6px; }
+  .choisi .indic { background: var(--orange); box-shadow: inset 0 0 0 1.5px var(--orange); }
+  .option:active .indic { scale: 0.86; }
+  .indic path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 0.12s ease-in; }
+  .choisi .indic path { stroke-dashoffset: 0; transition: stroke-dashoffset 0.26s cubic-bezier(0.3, 0.8, 0.3, 1) 0.05s; }
+  .corps { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 0.5px; }
+  .libelle { font: 500 14px/1.36 var(--lecture); color: var(--blanc); }
+  .reco {
+    display: inline-block; margin-left: 8px; padding: 2px 7px 3px; border-radius: 6px; vertical-align: 1px;
+    font: 600 11px/1.1 var(--affichage); color: var(--orange-clair); background: rgba(217, 119, 87, 0.18);
+  }
+  .desc { font: 400 12.5px/1.42 var(--lecture); color: rgba(235, 235, 245, 0.55); }
+  kbd {
+    min-width: 18px; height: 18px; padding: 0 5px; margin-top: 1px; border-radius: 5px; text-align: center;
+    font: 600 11px/18px var(--affichage); color: rgba(235, 235, 245, 0.55); background: rgba(118, 118, 128, 0.24);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  body.clavier kbd { opacity: 1; }
+  body.clavier .option:focus-visible, body.clavier button:focus-visible { outline: 2px solid var(--orange-trait); outline-offset: 2px; }
+
+  /* ---------- nuance et dictée ---------- */
+  .nuance {
+    position: relative; display: flex; align-items: flex-end; gap: 6px; margin-top: 10px;
+    padding: 5px 5px 5px 14px; border-radius: 14px; background: rgba(118, 118, 128, 0.13);
+    transition: box-shadow 0.2s, background 0.2s;
+  }
+  /* coins continus, comme sur iOS, là où le moteur les connaît */
+  @supports (corner-shape: squircle) {
+    .option, .nuance { corner-shape: squircle; border-radius: 22px; }
+  }
+  .nuance.actif { box-shadow: inset 0 0 0 1px rgba(235, 235, 245, 0.22); }
+  .nuance.rempli { box-shadow: inset 0 0 0 1.25px var(--orange-trait); }
+  .nuance.sans-micro { padding-right: 14px; }
+  textarea {
+    flex: 1; min-width: 0; height: 32px; max-height: 124px; padding: 6px 0; resize: none; border: 0; outline: 0;
+    background: transparent; color: #fff; caret-color: var(--orange); font: 400 14px/20px var(--lecture);
+  }
+  textarea::placeholder { color: var(--gris-pale); }
+  textarea::-webkit-scrollbar { width: 0; }
+  .micro {
+    flex: none; width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; color: var(--gris);
+    transition: background 0.2s, color 0.2s, scale 0.3s var(--ressort-ui);
+  }
+  .micro:hover { background: var(--remplissage-survol); color: #fff; }
+  .micro:active { scale: 0.88; }
+  .micro svg { grid-area: 1 / 1; }
+  .i-stop, .i-roue { display: none; }
+  .onde { display: none; align-items: center; gap: 2.5px; height: 30px; padding-right: 3px; }
+  .onde i { display: block; width: 3px; height: 16px; border-radius: 2px; background: var(--orange); transform: scaleY(0.2); transition: transform 0.09s linear; }
+  .scintille {
+    display: none; position: absolute; left: 14px; top: 11px; pointer-events: none;
+    font: 500 14px/20px var(--lecture); color: transparent;
+    background: linear-gradient(90deg, rgba(235, 235, 245, 0.28) 0%, #fff 50%, rgba(235, 235, 245, 0.28) 100%);
+    background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
+    animation: scintille 1.4s linear infinite;
+  }
+  .nuance[data-etat="ecoute"] { box-shadow: inset 0 0 0 1.5px var(--orange), 0 0 0 4px rgba(217, 119, 87, 0.16); }
+  .nuance[data-etat="ecoute"] .onde { display: flex; }
+  .nuance[data-etat="ecoute"] .micro { background: var(--orange); color: #fff; animation: pouls 1.6s ease-out infinite; }
+  .nuance[data-etat="ecoute"] .i-micro { display: none; }
+  .nuance[data-etat="ecoute"] .i-stop { display: block; }
+  .nuance[data-etat="transcrit"] .i-micro { display: none; }
+  .nuance[data-etat="transcrit"] .i-roue { display: block; animation: tourne 0.9s linear infinite; }
+  .nuance[data-etat="transcrit"] .micro { color: var(--orange); background: none; cursor: default; }
+  .nuance[data-etat="transcrit"] .scintille { display: block; }
+  .nuance[data-etat="transcrit"] textarea { color: transparent; }
+  .nuance[data-etat="transcrit"] textarea::placeholder { color: transparent; }
+  .note { font: 400 12px/1.4 var(--lecture); color: rgba(235, 235, 245, 0.55); margin: 7px 4px 0; }
+  .note:empty { display: none; }
+  .note.erreur { color: #FF8070; }
+
+  /* ---------- pied ---------- */
+  footer {
+    flex: none; height: 58px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 9px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+  .discret {
+    display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 17px;
+    font: 500 13px/1 var(--lecture); color: var(--gris); transition: background 0.15s, color 0.15s;
+  }
+  .discret:hover { background: var(--remplissage); color: #fff; }
+  .principal {
+    display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 18px; border-radius: 17px;
+    font: 600 13.5px/1 var(--affichage); color: #fff; background: var(--orange);
+    transition: background 0.22s, color 0.22s, scale 0.3s var(--ressort-ui);
+  }
+  .principal:hover:not(:disabled) { background: var(--orange-survol); }
+  .principal:active:not(:disabled) { scale: 0.95; }
+  .principal:disabled { background: rgba(118, 118, 128, 0.22); color: rgba(235, 235, 245, 0.32); }
+  .principal .i-entree { display: none; opacity: 0.75; margin-right: -4px; }
+  body.clavier .principal:not(:disabled) .i-entree { display: block; }
+
+  /* ---------- fin ---------- */
+  .final {
+    height: 44px; width: max-content; display: flex; align-items: center; gap: 9px; padding: 0 18px 0 11px;
+    font: 600 13.5px/1 var(--affichage); color: #fff; white-space: nowrap;
+  }
+  .f-icone { width: 22px; height: 22px; border-radius: 11px; background: var(--orange); display: grid; place-items: center; color: #fff; }
+  .f-icone path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+  #ile[data-mode="fin"] .f-icone { animation: pop 0.55s var(--ressort-ui) 0.1s both; }
+  #ile[data-mode="fin"] .f-icone path { stroke-dashoffset: 0; transition: stroke-dashoffset 0.32s cubic-bezier(0.3, 0.8, 0.3, 1) 0.24s; }
+
+  @keyframes tourne { to { rotate: 360deg; } }
+  @keyframes scintille { from { background-position: 110% 0; } to { background-position: -110% 0; } }
+  @keyframes pouls {
+    0% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0.5); }
+    80%, 100% { box-shadow: 0 0 0 8px rgba(217, 119, 87, 0); }
+  }
+  @keyframes pop { from { scale: 0.4; opacity: 0; } to { scale: 1; opacity: 1; } }
+  @keyframes secoue {
+    0%, 100% { translate: 0; } 20% { translate: -5px; } 40% { translate: 4px; } 60% { translate: -3px; } 80% { translate: 2px; }
+  }
+  .secoue { animation: secoue 0.36s ease-in-out; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01s !important; animation-duration: 0.01s !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="ile" data-mode="arrivee" role="dialog" aria-live="polite">
+    <div class="couche compact" id="compact">
+      <span class="etincelle" id="c-etincelle"></span>
+      <span class="c-titre" id="c-titre"></span>
+      <span class="badge" id="badge"></span>
+    </div>
+
+    <div class="couche etendu" id="etendu">
+      <header>
+        <span class="etincelle" id="h-etincelle"></span>
+        <button class="h-titre" id="h-titre" title="Ouvrir la discussion dans Claude">
+          <span></span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </button>
+        <span class="espace"></span>
+        <div class="points" id="points"></div>
+        <button class="rond" id="replier" title="Réduire (Échap)" aria-label="Réduire">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14.5 6-6 6 6"/></svg>
+        </button>
+      </header>
+      <div class="pages" id="pages"></div>
+      <footer>
+        <button class="discret" id="dans-claude">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+          <span id="dc-texte">Répondre dans Claude</span>
+        </button>
+        <span class="espace"></span>
+        <button class="principal" id="principal" disabled>
+          <span id="p-texte">Envoyer</span>
+          <svg class="i-entree" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 5 14l4 4"/><path d="M5 14h10a4 4 0 0 0 4-4V6"/></svg>
+        </button>
+      </footer>
+    </div>
+
+    <div class="couche final" id="final">
+      <span class="f-icone" id="f-icone"></span>
+      <span id="f-texte"></span>
+    </div>
+  </div>
+
+<script>
+  const D = __DONNEES__;
+
+  // textes de l'interface, en anglais si la langue choisie par l'îlot (Windows ou réglage « langue ») n'est pas le français
+  const EN = D.langue === 'en';
+  const T = EN ? {
+    ouvrir: 'Open the chat in Claude', reduire: 'Collapse (Esc)', reduireCourt: 'Collapse', dansClaude: 'Answer in Claude',
+    envoyer: 'Send', suivant: 'Next', envoye: 'Sent', ouvert: 'Opened in Claude', reco: 'Recommended',
+    question: (n) => `Question ${n}`, autre: 'Other answer or detail', transcription: 'Transcribing…',
+    dicter: 'Dictate', arreter: 'Stop and transcribe', ecoute: 'Listening… click the square to stop',
+    lent: 'Transcription is slower than usual. Press Esc to stop it.', impossible: 'Dictation unavailable: ',
+    rate: 'Dictation failed: ', muet: 'no response', rien: 'I didn’t hear anything. Try again a little closer to the mic.',
+  } : {
+    ouvrir: 'Ouvrir la discussion dans Claude', reduire: 'Réduire (Échap)', reduireCourt: 'Réduire',
+    dansClaude: 'Répondre dans Claude', envoyer: 'Envoyer', suivant: 'Suivant', envoye: 'Envoyé',
+    ouvert: 'Ouvert dans Claude', reco: 'Recommandé', question: (n) => `Question ${n}`,
+    autre: 'Autre réponse ou précision', transcription: 'Transcription…', dicter: 'Dicter',
+    arreter: 'Arrêter et transcrire', ecoute: 'Je t’écoute… clique sur le carré pour arrêter',
+    lent: 'Transcription plus lente que d’habitude. Échap pour l’arrêter.', impossible: 'Dictée impossible : ',
+    rate: 'La dictée n’a pas marché : ', muet: 'pas de réponse',
+    rien: 'Je n’ai rien entendu. Réessaie un peu plus près du micro.',
+  };
+
+  // ---------- outils ----------
+  const $ = (s, r = document) => r.querySelector(s);
+  const ile = $('#ile');
+  const reduit = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+  function appel(nom, ...args) {
+    try {
+      const f = window.pywebview && window.pywebview.api && window.pywebview.api[nom];
+      return f ? Promise.resolve(f(...args)).catch(() => null) : Promise.resolve(null);
+    } catch (e) { return Promise.resolve(null); }
+  }
+  // typographie française : espaces insécables et apostrophe courbe, à l'affichage seulement. Sans effet sur un
+  // texte anglais, qui n'a pas d'espace avant ? ! : ; (les questions sont dans la langue de la discussion, pas de Windows)
+  const fr = (t) => String(t)
+    .replace(/ ([?!;%])/g, ' $1').replace(/ ([:»])/g, ' $1').replace(/« /g, '« ').replace(/'/g, '’');
+  function el(balise, classe, texte) {
+    const e = document.createElement(balise);
+    if (classe) e.className = classe;
+    if (texte !== undefined) e.textContent = fr(texte);
+    return e;
+  }
+
+  // ressort amorti échantillonné en easing linear() : réponse en secondes, amortissement entre 0 et 1
+  function ressort(reponse, amorti) {
+    if (reduit) return { duration: 1, easing: 'linear' };
+    const w0 = 2 * Math.PI / reponse, z = amorti, wd = w0 * Math.sqrt(1 - z * z);
+    const x = (t) => 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + (z * w0 / wd) * Math.sin(wd * t));
+    let T = 0;
+    for (let t = 0; t < 3; t += 0.004) if (Math.abs(1 - x(t)) > 0.002) T = t;
+    const pts = [];
+    for (let i = 0; i <= 60; i++) pts.push(+x(T * i / 60).toFixed(4));
+    return { duration: Math.round(T * 1000), easing: 'linear(' + pts.join(', ') + ')' };
+  }
+  const R_ARRIVEE = ressort(0.62, 0.72);
+  const R_OUVRIR = ressort(0.52, 0.8);
+  const R_FERMER = ressort(0.44, 0.88);
+  const R_PAGE = ressort(0.42, 0.86);
+
+  // ---------- icônes ----------
+  // Logo Claude officiel, repris tel quel de l'appli Claude (ion-dist.asar, assets/v1/cd02a42d9-Vq_H3mgS.svg).
+  const LOGO_CLAUDE = 'M52.4285 162.873L98.7844 136.879L99.5485 134.602L98.7844 133.334H96.4921L88.7237 132.862L62.2346 132.153L39.3113 131.207L17.0249 130.026L11.4214 128.844L6.2 121.873L6.7094 118.447L11.4214 115.257L18.171 115.847L33.0711 116.911L55.485 118.447L71.6586 119.392L95.728 121.873H99.5485L100.058 120.337L98.7844 119.392L97.7656 118.447L74.5877 102.732L49.4995 86.1905L36.3823 76.62L29.3779 71.7757L25.8121 67.2858L24.2839 57.3608L30.6515 50.2716L39.3113 50.8623L41.4763 51.4531L50.2636 58.1879L68.9842 72.7209L93.4357 90.6804L97.0015 93.6343L98.4374 92.6652L98.6571 91.9801L97.0015 89.2625L83.757 65.2772L69.621 40.8192L63.2534 30.6579L61.5978 24.632C60.9565 22.1032 60.579 20.0111 60.579 17.4246L67.8381 7.49965L71.9133 6.19995L81.7193 7.49965L85.7946 11.0443L91.9074 24.9865L101.714 46.8451L116.996 76.62L121.453 85.4816L123.873 93.6343L124.764 96.1155H126.292V94.6976L127.566 77.9197L129.858 57.3608L132.15 30.8942L132.915 23.4505L136.608 14.4708L143.994 9.62643L149.725 12.344L154.437 19.0788L153.8 23.4505L150.998 41.6463L145.522 70.1215L141.957 89.2625H143.994L146.414 86.7813L156.093 74.0206L172.266 53.698L179.398 45.6635L187.803 36.802L193.152 32.5484H203.34L210.726 43.6549L207.415 55.1159L196.972 68.3492L188.312 79.5739L175.896 96.2095L168.191 109.585L168.882 110.689L170.738 110.53L198.755 104.504L213.91 101.787L231.994 98.7149L240.144 102.496L241.036 106.395L237.852 114.311L218.495 119.037L195.826 123.645L162.07 131.592L161.696 131.893L162.137 132.547L177.36 133.925L183.855 134.279H199.774L229.447 136.524L237.215 141.605L241.8 147.867L241.036 152.711L229.065 158.737L213.019 154.956L175.45 145.977L162.587 142.787H160.805V143.85L171.502 154.366L191.242 172.089L215.82 195.011L217.094 200.682L213.91 205.172L210.599 204.699L188.949 188.394L180.544 181.069L161.696 165.118H160.422V166.772L164.752 173.152L187.803 207.771L188.949 218.405L187.294 221.832L181.308 223.959L174.813 222.777L161.187 203.754L147.305 182.486L136.098 163.345L134.745 164.2L128.075 235.42L125.019 239.082L117.887 241.8L111.902 237.31L108.718 229.984L111.902 215.452L115.722 196.547L118.779 181.541L121.58 162.873L123.291 156.636L123.14 156.219L121.773 156.449L107.699 175.752L86.304 204.699L69.3663 222.777L65.291 224.431L58.2867 220.768L58.9235 214.27L62.8713 208.48L86.304 178.705L100.44 160.155L109.551 149.507L109.462 147.967L108.959 147.924L46.6977 188.512L35.6182 189.93L30.7788 185.44L31.4156 178.115L33.7079 175.752L52.4285 162.873Z';
+  function etincelle(taille) {
+    return `<svg width="${taille}" height="${taille}" viewBox="0 0 248 248" fill="currentColor" aria-hidden="true"><path d="${LOGO_CLAUDE}"/></svg>`;
+  }
+  const COCHE = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path pathLength="1" d="M5.5 12.5 10 17l8.5-9.5"/></svg>';
+  const COCHE_FIN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path pathLength="1" d="M5.5 12.5 10 17l8.5-9.5"/></svg>';
+  const FLECHE_FIN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path pathLength="1" d="M7 17 17 7M8 7h9v9"/></svg>';
+  const MICRO = '<svg class="i-micro" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></svg>';
+  const STOP = '<svg class="i-stop" width="12" height="12" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" fill="currentColor"/></svg>';
+  const ROUE = '<svg class="i-roue" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 0 1 9 9"/></svg>';
+  const PLACEHOLDER = T.autre;
+
+  // ---------- données ----------
+  const RECO = /\s*\((?:recommandée?|recommended)\)\s*$/i;
+  const Q = D.questions.map((q, i) => ({
+    i,
+    question: q.question || '',
+    entete: (q.header || '').trim(),
+    multiple: !!q.multiSelect,
+    options: (q.options || []).map((o, j) => ({
+      j, label: o.label || '', affiche: (o.label || '').replace(RECO, ''), reco: RECO.test(o.label || ''),
+      desc: (o.description || '').trim(),
+    })),
+  }));
+  const etat = Q.map(() => ({ choix: new Set(), texte: '' }));
+  const vues = [];
+  let page = 0;
+  let mode = 'arrivee';
+  let dictee = null;
+  let seqDictee = 0;
+  let ouvertureEnAttente = false;
+  let minuteurAvance = null;
+  let rang = D.rang || 0;
+  const LARGEUR = 600, R_PANNEAU = 30, H_PASTILLE = 44;
+  const haut = () => 12 + rang * 56;
+
+  function reponse(i) {
+    const q = Q[i];
+    const labels = [...etat[i].choix].sort((a, b) => a - b).map((j) => q.options[j].label).join(', ');
+    const texte = etat[i].texte;
+    if (labels && texte) return labels + '. ' + texte;
+    return labels || texte;
+  }
+  const repondue = (i) => reponse(i) !== '';
+  const complet = () => Q.every((_, i) => repondue(i));
+  function prochaineSansReponse(i) {
+    for (let k = i + 1; k < Q.length; k++) if (!repondue(k)) return k;
+    for (let k = 0; k < i; k++) if (!repondue(k)) return k;
+    return null;
+  }
+
+  // ---------- construction ----------
+  function construire() {
+    document.documentElement.lang = EN ? 'en' : 'fr';
+    $('#h-titre').title = T.ouvrir;
+    $('#replier').title = T.reduire;
+    $('#replier').setAttribute('aria-label', T.reduireCourt);
+    $('#dc-texte').textContent = T.dansClaude;
+    $('#p-texte').textContent = T.envoyer;
+    $('#c-titre').textContent = fr(D.titre);
+    $('#h-titre span').textContent = fr(D.titre);
+    $('#c-etincelle').innerHTML = etincelle(20);
+    $('#h-etincelle').innerHTML = etincelle(16);
+    $('#f-icone').innerHTML = COCHE_FIN;
+    if (!D.lien) { $('#h-titre').disabled = true; $('#h-titre').removeAttribute('title'); }
+    $('#dans-claude').hidden = !(D.lien || D.demo);
+    Q.forEach((q) => $('#pages').append(construirePage(q)));
+    if (Q.length > 1) {
+      Q.forEach((q, i) => {
+        const b = el('button', 'point');
+        b.title = q.entete || T.question(i + 1);
+        b.onclick = (e) => { e.stopPropagation(); allerA(i); };
+        $('#points').append(b);
+      });
+    }
+    vues[0].page.classList.add('visible');
+    majTout();
+  }
+
+  function construirePage(q) {
+    const page = el('section', 'page');
+    if (q.entete) page.append(el('div', 'q-entete', q.entete));
+    page.append(el('h2', 'q-texte', q.question));
+    const liste = el('div', 'options' + (q.multiple ? ' multiple' : ''));
+    liste.setAttribute('role', 'group');
+    const boutons = q.options.map((o) => {
+      const b = el('button', 'option');
+      b.setAttribute('aria-pressed', 'false');
+      b.innerHTML = `<span class="indic">${COCHE}</span><span class="corps"><span class="libelle"></span></span>`;
+      const libelle = $('.libelle', b);
+      libelle.textContent = fr(o.affiche);
+      if (o.reco) libelle.append(el('span', 'reco', T.reco));
+      if (o.desc) $('.corps', b).append(el('span', 'desc', o.desc));
+      if (o.j < 9) b.append(el('kbd', '', String(o.j + 1)));
+      b.onclick = () => choisir(q.i, o.j, 'souris');
+      liste.append(b);
+      return b;
+    });
+    page.append(liste);
+
+    const nuance = el('div', 'nuance');
+    nuance.innerHTML = '<textarea rows="1" spellcheck="false"></textarea><span class="scintille"></span>'
+      + '<span class="onde"><i></i><i></i><i></i><i></i><i></i></span>'
+      + `<button class="micro">${MICRO}${STOP}${ROUE}</button>`;
+    $('.scintille', nuance).textContent = T.transcription;
+    $('.micro', nuance).title = T.dicter;
+    const champ = $('textarea', nuance);
+    champ.placeholder = PLACEHOLDER;
+    champ.addEventListener('input', () => {
+      etat[q.i].texte = champ.value.trim();
+      nuance.classList.toggle('rempli', etat[q.i].texte !== '');
+      autoHauteur(champ);
+      majTout();
+    });
+    champ.addEventListener('focus', () => nuance.classList.add('actif'));
+    champ.addEventListener('blur', () => nuance.classList.remove('actif'));
+    const micro = $('.micro', nuance);
+    micro.onclick = () => basculerDictee(q.i);
+    if (!D.dictee) {  // dictée pas activée ou Whisper pas installé : pas de micro du tout
+      micro.hidden = true;
+      nuance.classList.add('sans-micro');
+    }
+    const note = el('p', 'note');
+    page.append(nuance, note);
+    vues[q.i] = { page, boutons, nuance, champ, micro, note, barres: [...nuance.querySelectorAll('.onde i')] };
+    return page;
+  }
+
+  function autoHauteur(champ) {
+    const avant = champ.offsetHeight;
+    champ.style.height = '0px';
+    champ.style.height = Math.min(124, Math.max(32, champ.scrollHeight)) + 'px';
+    if (champ.offsetHeight !== avant) ajusterHauteur();
+  }
+
+  // ---------- état visible ----------
+  function majPage(i) {
+    vues[i].boutons.forEach((b, j) => {
+      const oui = etat[i].choix.has(j);
+      b.classList.toggle('choisi', oui);
+      b.setAttribute('aria-pressed', String(oui));
+    });
+  }
+
+  function majTout() {
+    const restantes = Q.filter((_, i) => !repondue(i)).length;
+    const badge = $('#badge');
+    if (badge.dataset.v !== String(restantes)) {
+      badge.dataset.v = String(restantes);
+      badge.innerHTML = restantes ? String(restantes)
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12.5 10 17l8.5-9.5"/></svg>';
+    }
+    [...$('#points').children].forEach((p, i) => {
+      p.classList.toggle('actuel', i === page);
+      p.classList.toggle('repondu', repondue(i));
+    });
+    const b = $('#principal');
+    if (complet()) {
+      $('#p-texte').textContent = T.envoyer;
+      b.disabled = false;
+    } else if (Q.length > 1) {
+      $('#p-texte').textContent = T.suivant;
+      b.disabled = !repondue(page);
+    } else {
+      $('#p-texte').textContent = T.envoyer;
+      b.disabled = true;
+    }
+  }
+
+  function pop(e) {
+    if (reduit) return;
+    e.animate([{ scale: 1 }, { scale: 1.07 }, { scale: 1 }], { duration: 420, easing: 'cubic-bezier(0.3, 1.4, 0.5, 1)' });
+  }
+
+  // ---------- géométrie de l'île et zone cliquable ----------
+  let geo = { w: 120, h: 30, r: 15, t: -60 };
+  let animIle = null;
+  let seqZone = 0;
+  const MARGE = 3;
+
+  function appliquer(g) {
+    ile.style.width = g.w + 'px';
+    ile.style.height = g.h + 'px';
+    ile.style.borderRadius = g.r + 'px';
+    ile.style.top = g.t + 'px';
+  }
+  // forme réellement affichée, y compris au milieu d'une animation
+  function geoActuelle() {
+    const s = getComputedStyle(ile);
+    return { w: parseFloat(s.width), h: parseFloat(s.height), r: parseFloat(s.borderTopLeftRadius), t: parseFloat(s.top) };
+  }
+  // la fenêtre ne capte les clics que sur l'île : Python découpe la fenêtre à cette forme
+  function zone(x, y, w, h, r, devant) {
+    const p = appel('zone', ++seqZone, x, y, w, h, r, window.devicePixelRatio || 1, !!devant);
+    return Promise.race([p, attendre(60)]);
+  }
+  // forme au repos : rectangle arrondi au plus près, la zone cliquable colle à l'île
+  function zoneForme(g, devant) {
+    const cx = window.innerWidth / 2;
+    zone(cx - g.w / 2 - MARGE, g.t - MARGE, g.w + 2 * MARGE, g.h + 2 * MARGE, g.r + MARGE, devant);
+  }
+  // pendant une animation : rectangle qui couvre le départ, l'arrivée et le dépassement du ressort
+  function zoneUnion(a, b, devant) {
+    const cx = window.innerWidth / 2;
+    const w = Math.max(a.w, b.w), ex = 8 + Math.abs(a.w - b.w) * 0.07;
+    const basA = a.t + a.h, basB = b.t + b.h, ey = 8 + Math.abs(basA - basB) * 0.08;
+    const t = Math.max(0, Math.min(a.t, b.t) - 8);
+    return zone(cx - w / 2 - ex, t, w + 2 * ex, Math.max(basA, basB) + ey - t, 0, devant);
+  }
+  // l'île passe d'une forme à l'autre sur un ressort ; la zone cliquable s'agrandit avant, se resserre après
+  let seqMorph = 0;
+  async function morph(vers, r, devant) {
+    const jeton = ++seqMorph;
+    geo = { ...vers };
+    await zoneUnion(geoActuelle(), vers, devant);
+    if (jeton !== seqMorph) return false;
+    const de = geoActuelle();
+    if (animIle) animIle.cancel();
+    appliquer(vers);
+    const a = ile.animate([
+      { width: de.w + 'px', height: de.h + 'px', borderRadius: de.r + 'px', top: de.t + 'px' },
+      { width: vers.w + 'px', height: vers.h + 'px', borderRadius: vers.r + 'px', top: vers.t + 'px' },
+    ], { duration: r.duration, easing: r.easing });
+    animIle = a;
+    try { await a.finished; } catch (e) { return false; }
+    if (animIle !== a) return false;
+    animIle = null;
+    zoneForme(vers);
+    return true;
+  }
+
+  const largeurCompacte = () => Math.ceil($('#compact').offsetWidth);
+  function hauteurPanneau(i) {
+    const dispo = window.innerHeight - haut() - 14;
+    document.documentElement.style.setProperty('--page-max', Math.max(160, dispo - 50 - 58) + 'px');
+    return Math.min(dispo, 50 + vues[i].page.offsetHeight + 58);
+  }
+  function geoPastille() { return { w: largeurCompacte(), h: H_PASTILLE, r: H_PASTILLE / 2, t: haut() }; }
+  function geoPanneau() { return { w: LARGEUR, h: hauteurPanneau(page), r: R_PANNEAU, t: haut() }; }
+
+  let minuteurHauteur = null;
+  function ajusterHauteur() {
+    clearTimeout(minuteurHauteur);
+    minuteurHauteur = setTimeout(() => { if (mode === 'etendu') morph(geoPanneau(), R_PAGE); }, 16);
+  }
+
+  // ---------- états ----------
+  function changerMode(m) { mode = m; ile.dataset.mode = m; }
+
+  async function arrivee() {
+    changerMode('compact');
+    const cible = geoPastille();
+    geo = { w: Math.min(cible.w, 132), h: 30, r: 15, t: -44 };
+    appliquer(geo);
+    appel('pret');
+    await morph(cible, R_ARRIVEE);
+    if (D.deplie) deplier();
+  }
+
+  function deplier() {
+    if (mode !== 'compact') return Promise.resolve(false);
+    changerMode('etendu');
+    appel('focus');
+    return morph(geoPanneau(), R_OUVRIR, true);
+  }
+
+  // rendre : l'utilisateur a réduit lui-même (Échap, chevron), le clavier retourne à sa fenêtre
+  function replier(rendre) {
+    if (mode !== 'etendu' || dictee) return Promise.resolve(false);
+    clearTimeout(minuteurAvance);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    changerMode('compact');
+    if (rendre === true) appel('rendre_focus');
+    return morph(geoPastille(), R_FERMER);
+  }
+
+  function perteFocus() {
+    if (mode === 'etendu' && !dictee) replier();
+  }
+
+  function changerRang(n) {
+    if (n === rang) return;
+    rang = n;
+    if (mode === 'compact') morph(geoPastille(), R_PAGE);
+    else if (mode === 'etendu') morph(geoPanneau(), R_PAGE);
+    else if (mode === 'fin') morph({ ...geo, t: haut() }, R_PAGE);
+  }
+
+  async function adieu(texte, icone) {
+    clearTimeout(minuteurAvance);
+    $('#f-texte').textContent = texte;
+    $('#f-icone').innerHTML = icone;
+    changerMode('fin');
+    await morph({ w: Math.ceil($('#final').offsetWidth), h: H_PASTILLE, r: H_PASTILLE / 2, t: haut() }, R_FERMER);
+    await attendre(reduit ? 250 : 440);
+    if (!reduit) {
+      // la pastille remonte en s'effaçant : la découpe s'ouvre vers le haut pour ne pas lui couper le sommet
+      const cx = window.innerWidth / 2, haut0 = Math.max(0, geo.t - 20);
+      await zone(cx - geo.w / 2 - MARGE, haut0, geo.w + 2 * MARGE, geo.t + geo.h + MARGE - haut0, 0);
+      await ile.animate(
+        [{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(-14px) scale(0.92)' }],
+        { duration: 210, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' }).finished;
+    }
+    appel('fin');
+  }
+
+  // ---------- choix et navigation ----------
+  function choisir(i, j, source) {
+    if (mode !== 'etendu') return;
+    const q = Q[i], c = etat[i].choix;
+    if (q.multiple) c.has(j) ? c.delete(j) : c.add(j);
+    else { const deja = c.has(j); c.clear(); if (!deja) c.add(j); }
+    majPage(i);
+    majTout();
+    clearTimeout(minuteurAvance);
+    if (q.multiple || !c.size || source === 'auto') return;
+    if (etat[i].texte || document.activeElement === vues[i].champ) return;
+    const k = prochaineSansReponse(i);
+    if (k !== null) {
+      minuteurAvance = setTimeout(() => {
+        if (page === i && mode === 'etendu' && document.activeElement !== vues[i].champ && !dictee) allerA(k);
+      }, 430);
+    }
+    else if (complet()) setTimeout(() => pop($('#principal')), 120);
+  }
+
+  function allerA(k) {
+    if (k < 0 || k >= Q.length || k === page || mode !== 'etendu') return;
+    clearTimeout(minuteurAvance);
+    const sens = k > page ? 1 : -1;
+    const ancienne = vues[page].page, nouvelle = vues[k].page;
+    if (vues[page].page.contains(document.activeElement)) document.activeElement.blur();
+    page = k;
+    ancienne.classList.remove('visible');
+    nouvelle.classList.add('visible');
+    if (!reduit) {
+      ancienne.animate([
+        { visibility: 'visible', opacity: 1, transform: 'translateX(0)', filter: 'blur(0)' },
+        { visibility: 'visible', opacity: 0, transform: `translateX(${-22 * sens}px)`, filter: 'blur(3px)' },
+      ], { duration: 170, easing: 'cubic-bezier(0.4, 0, 1, 1)' });
+      nouvelle.animate([
+        { opacity: 0, transform: `translateX(${26 * sens}px)`, filter: 'blur(3px)' },
+        { opacity: 1, transform: 'translateX(0)', filter: 'blur(0)' },
+      ], { duration: 340, delay: 50, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'backwards' });
+    }
+    majTout();
+    morph(geoPanneau(), R_PAGE);
+  }
+
+  function actionPrincipale() {
+    if (mode !== 'etendu') return;
+    if (complet()) { envoyer(); return; }
+    if (!repondue(page)) { secouer($('.options', vues[page].page)); return; }
+    const k = prochaineSansReponse(page);
+    if (k !== null) allerA(k);
+  }
+
+  function envoyer() {
+    if (!complet() || mode !== 'etendu' || dictee) return;
+    const reponses = {};
+    Q.forEach((q, i) => { reponses[q.question] = reponse(i); });
+    appel('envoyer', reponses);
+    adieu(T.envoye, COCHE_FIN);
+  }
+
+  function versClaude() {
+    if (mode !== 'etendu') return;
+    if (dictee) annulerDictee();
+    appel('dans_claude');
+    adieu(T.ouvert, FLECHE_FIN);
+  }
+
+  // ---------- dictée ----------
+  function note(i, texte, erreur) {
+    const n = vues[i].note;
+    n.textContent = texte ? fr(texte) : '';
+    n.classList.toggle('erreur', !!erreur);
+    ajusterHauteur();
+  }
+  function secouer(e) {
+    e.classList.remove('secoue');
+    void e.offsetWidth;
+    e.classList.add('secoue');
+  }
+
+  function remettre(v) {
+    v.micro.disabled = false;
+    v.nuance.dataset.etat = '';
+    v.micro.title = T.dicter;
+    v.champ.placeholder = PLACEHOLDER;
+  }
+
+  // trois phases : ouverture du micro, écoute, transcription. Échap, « Répondre dans Claude » et le chevron
+  // arrêtent la dictée à chacune ; le jeton dit à l'îlot quelle transcription lâcher, un résultat tardif est ignoré
+  async function basculerDictee(i) {
+    const v = vues[i];
+    if (dictee && dictee.i !== i) return;
+    if (!dictee) {
+      // une ouverture arrêtée doit revenir avant la suivante : son arrêt tardif couperait le nouvel enregistrement
+      if (mode !== 'etendu' || ouvertureEnAttente) return;
+      const d = { i, phase: 'ouverture', jeton: ++seqDictee, minuterie: null };
+      dictee = d;
+      v.micro.disabled = true;
+      ouvertureEnAttente = true;
+      const r = await appel('dictee_debut', d.jeton);
+      ouvertureEnAttente = false;
+      if (dictee !== d) {  // arrêtée pendant l'ouverture : on referme le micro qui vient de s'ouvrir
+        if (r === 'ok') appel('dictee_annuler');
+        v.micro.disabled = false;
+        return;
+      }
+      v.micro.disabled = false;
+      if (r !== 'ok') { dictee = null; note(i, T.impossible + (r || T.muet), true); secouer(v.nuance); return; }
+      d.phase = 'ecoute';
+      v.nuance.dataset.etat = 'ecoute';
+      v.micro.title = T.arreter;
+      v.champ.placeholder = T.ecoute;
+      note(i, '');
+      suivreNiveau(i);
+      return;
+    }
+    const d = dictee;
+    if (d.phase !== 'ecoute') return;
+    d.phase = 'transcrit';
+    v.nuance.dataset.etat = 'transcrit';
+    v.micro.disabled = true;
+    d.minuterie = setTimeout(() => {
+      if (dictee === d) note(i, T.lent);
+    }, 8000);
+    const r = await appel('dictee_fin', d.jeton);
+    clearTimeout(d.minuterie);
+    if (dictee !== d) return;  // arrêtée entre-temps : le résultat ne sert plus
+    dictee = null;
+    remettre(v);
+    note(i, '');
+    if (r && r.abandon) return;
+    if (!r || r.erreur) { note(i, T.rate + ((r && r.erreur) || T.muet), true); secouer(v.nuance); return; }
+    const texte = (r.texte || '').trim();
+    if (!texte) { note(i, T.rien); return; }
+    ecrire(i, texte);
+  }
+
+  function annulerDictee() {
+    const d = dictee;
+    if (!d) return;
+    dictee = null;
+    clearTimeout(d.minuterie);
+    if (d.phase === 'transcrit') appel('dictee_abandonner', d.jeton);
+    else appel('dictee_annuler');
+    remettre(vues[d.i]);
+    if (d.phase === 'ouverture') vues[d.i].micro.disabled = true;  // rendu quand l'ouverture revient
+    note(d.i, '');
+  }
+
+  // le texte dicté s'écrit en quelques images, comme s'il arrivait
+  function ecrire(i, texte) {
+    const champ = vues[i].champ;
+    const base = champ.value.trim() ? champ.value.trim() + ' ' : '';
+    const duree = reduit ? 0 : Math.min(420, texte.length * 9);
+    const t0 = performance.now();
+    const pas = () => {
+      const k = duree ? Math.min(1, (performance.now() - t0) / duree) : 1;
+      champ.value = base + texte.slice(0, Math.round(texte.length * k));
+      champ.dispatchEvent(new Event('input'));
+      if (k < 1) requestAnimationFrame(pas);
+      else { champ.focus(); champ.setSelectionRange(champ.value.length, champ.value.length); }
+    };
+    pas();
+  }
+
+  function suivreNiveau(i) {
+    const barres = vues[i].barres;
+    const poids = [0.55, 0.8, 1, 0.8, 0.55];
+    const lisse = [0, 0, 0, 0, 0];
+    let max = 1;
+    const tic = async () => {
+      if (!dictee || dictee.i !== i || dictee.phase !== 'ecoute') {
+        barres.forEach((b) => { b.style.transform = ''; });
+        return;
+      }
+      let v = await appel('niveau');
+      let n;
+      if (typeof v === 'number' && v >= 0) {
+        max = Math.max(v, max * 0.985, 1);
+        n = Math.min(1, v / max);
+      } else {
+        n = 0.35 + 0.3 * Math.sin(performance.now() / 170);
+      }
+      barres.forEach((b, k) => {
+        const cible = n * poids[k] * (0.72 + 0.28 * Math.random());
+        lisse[k] = lisse[k] * 0.45 + cible * 0.55;
+        b.style.transform = `scaleY(${(0.18 + 0.82 * lisse[k]).toFixed(3)})`;
+      });
+      setTimeout(tic, 70);
+    };
+    tic();
+  }
+
+  // ---------- clavier ----------
+  function clavier(oui) { document.body.classList.toggle('clavier', oui); }
+  window.addEventListener('pointermove', (e) => { if (Math.abs(e.movementX) + Math.abs(e.movementY) > 1) clavier(false); });
+
+  document.addEventListener('keydown', (e) => {
+    if (mode !== 'etendu') return;
+    const champ = vues[page].champ;
+    const dansChamp = e.target === champ || (e.target && e.target.tagName === 'TEXTAREA');
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (dictee) annulerDictee(); else replier(true);
+      return;
+    }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); envoyer(); return; }
+    if (e.key === 'Enter' && !e.shiftKey && (dansChamp || e.target.tagName !== 'BUTTON')) {
+      e.preventDefault();
+      actionPrincipale();
+      return;
+    }
+    if (dansChamp || e.ctrlKey || e.altKey || e.metaKey) return;
+    // touche physique et non caractère : sur un clavier AZERTY, la touche 1 donne « & » et la touche 2 « é »
+    const touche = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || '');
+    const n = touche ? Number(touche[1]) : (/^[1-9]$/.test(e.key) ? Number(e.key) : 0);
+    if (n) {
+      const j = n - 1;
+      if (j < Q[page].options.length) {
+        e.preventDefault();
+        clavier(true);
+        vues[page].boutons[j].focus({ preventScroll: false });
+        choisir(page, j, 'clavier');
+      }
+      return;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      clavier(true);
+      allerA(page + (e.key === 'ArrowRight' ? 1 : -1));
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab') {
+      clavier(true);
+      if (e.key === 'Tab') return;
+      e.preventDefault();
+      const liste = vues[page].boutons;
+      const k = liste.indexOf(document.activeElement);
+      const suivant = e.key === 'ArrowDown' ? (k + 1) % liste.length : (k <= 0 ? liste.length - 1 : k - 1);
+      liste[suivant].focus();
+      return;
+    }
+    // une lettre tapée n'importe où va dans le champ de la question affichée
+    if (e.key.length === 1 && e.key !== ' ') champ.focus();
+  });
+
+  // ---------- branchements ----------
+  ile.addEventListener('click', () => { if (mode === 'compact') deplier(); });
+  $('#replier').onclick = (e) => { e.stopPropagation(); if (dictee) annulerDictee(); replier(true); };
+  $('#principal').onclick = actionPrincipale;
+  $('#dans-claude').onclick = versClaude;
+  $('#h-titre').onclick = () => appel('ouvrir');
+  window.addEventListener('blur', () => setTimeout(() => { if (!document.hasFocus()) perteFocus(); }, 60));
+  document.addEventListener('contextmenu', (e) => { if (e.target.tagName !== 'TEXTAREA') e.preventDefault(); });
+
+  // accès pour les essais automatiques
+  window.ilot = {
+    deplier, replier, choisir, allerA, envoyer, versClaude, perteFocus, changerRang, basculerDictee, annulerDictee,
+    etat: () => ({
+      mode, page, complet: complet(), reponses: Q.map((_, i) => reponse(i)),
+      dictee: dictee && { i: dictee.i, phase: dictee.phase },
+    }),
+    cadre: () => { const r = ile.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, dpr: window.devicePixelRatio || 1 }; },
+    async testAuto() {
+      while (mode !== 'compact') await attendre(50);
+      await deplier();
+      Q.forEach((q) => choisir(q.i, 0, 'auto'));
+      const c = vues[Q.length - 1].champ;
+      c.value = 'nuance de test';
+      c.dispatchEvent(new Event('input'));
+      await attendre(400);
+      envoyer();
+    },
+  };
+
+  let demarre = false;
+  function demarrer() {
+    if (demarre) return;
+    demarre = true;
+    construire();
+    requestAnimationFrame(() => arrivee());
+  }
+  window.addEventListener('pywebviewready', demarrer);
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.zone) demarrer();
+</script>
+</body>
+</html>
