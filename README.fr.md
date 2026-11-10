@@ -7,6 +7,8 @@ tour et attendent votre réponse.
 
 [English version](README.md)
 
+![Une question de Claude arrive en haut de l'écran, s'ouvre sur ses options et reçoit sa réponse en un clic](docs/images/ilot-fr.webp)
+
 ## Ce que fait l'extension
 
 - **L'îlot.** Les questions posées avec AskUserQuestion apparaissent en haut de l'écran, sans prendre
@@ -18,13 +20,21 @@ tour et attendent votre réponse.
   la question passe aussi par l'îlot, avec le résumé du tour au-dessus. Votre réponse repart vers
   Claude, qui continue. Les boutons d'action de l'appli, comme Commit ou la création de PR, restent
   dans l'appli.
+
+  ![Une question de fin de tour dans l'îlot, avec le résumé du tour au-dessus](docs/images/fin-de-tour-fr.webp)
+
 - **La pastille.** Quand une session de l'appli Claude finit son tour sur une question, une pastille
   montre le titre de la session et ce qu'elle attend. Un clic ouvre la discussion. Elle se tait si vous
   avez déjà cette session sous les yeux.
+
+  ![La pastille ouverte sur deux sessions qui attendent une réponse](docs/images/pastille-fr.webp)
+
 - **Un rappel au démarrage.** Chaque session reçoit une consigne : poser vos décisions avec
   AskUserQuestion, en 2 à 4 options, sa recommandation en premier. Les questions ouvertes (un nom, un
   montant, un texte) restent dans la discussion.
 - **La dictée, facultative.** Un micro dans l'îlot, transcrit sur votre PC par Whisper.
+
+  ![Une question à choix multiples, la dictée en écoute](docs/images/dictee-fr.webp)
 
 Si quelque chose manque ou plante, l'extension s'efface et Claude pose ses questions dans la
 discussion, comme sans elle.
@@ -170,6 +180,10 @@ demi-minute chacun.
 
 Les trois sons sont fabriqués par synthèse par `ilot/sons/fabriquer_sons.py` (il faut numpy et scipy),
 qui écrit les mêmes fichiers à chaque lancement.
+
+Les images de ce README viennent de `essais\images_readme.py` : il affiche les vraies pages de l'îlot
+dans Chrome, sans fenêtre et avec des questions inventées, puis réécrit `docs/images/` en deux minutes
+environ. Il faut Playwright et Pillow (`py -3.12-64 -m pip install playwright pillow`) et Google Chrome.
 
 ## Licence
 

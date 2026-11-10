@@ -7,6 +7,8 @@ waiting for your answer.
 
 [Version française](README.fr.md)
 
+![A question from Claude drops in at the top of the screen, opens into its options and is answered with one click](docs/images/ilot-en.webp)
+
 ## What it does
 
 - **The island.** Questions asked with AskUserQuestion appear at the top of the screen without taking
@@ -17,12 +19,20 @@ waiting for your answer.
   with reply buttons ("Shall I push the commit?" with "Yes" and "Not now"), the question shows in the
   island as well, with the turn summary above it. Your answer goes back to Claude, which carries on.
   The app's action buttons, such as Commit or Create PR, stay in the app.
+
+  ![An end-of-turn question in the island, with the turn summary above it](docs/images/fin-de-tour-en.webp)
+
 - **The pill.** When a session of the Claude desktop app ends its turn on a question, a pill shows the
   session title and what it is waiting for. One click opens the chat. It stays quiet when that session
   is already in front of you.
+
+  ![The pill opened on two sessions waiting for an answer](docs/images/pastille-en.webp)
+
 - **A reminder at session start.** Each session is told to ask your decisions with AskUserQuestion, in
   2 to 4 options, its recommendation first. Open questions (a name, an amount, a text) stay in the chat.
 - **Dictation, optional.** A microphone button in the island, transcribed on your PC by Whisper.
+
+  ![A multiple-choice question with dictation listening](docs/images/dictee-en.webp)
 
 If anything is missing or fails, the plugin steps aside and Claude asks its questions in the chat, as
 it would without it.
@@ -168,6 +178,10 @@ open no window and exit with code 1 if a case fails. Less than half a minute eac
 
 The three sounds are synthesized by `ilot/sons/fabriquer_sons.py` (needs numpy and scipy), which
 writes the same files on every run.
+
+The images in this README come from `essais\images_readme.py`: it renders the island's own pages in
+Chrome, with no window and made-up questions, and rewrites `docs/images/` in about two minutes. It
+needs Playwright and Pillow (`py -3.12-64 -m pip install playwright pillow`) and Google Chrome.
 
 ## License
 
